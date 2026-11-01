@@ -1,7 +1,7 @@
 {
-    "versao":  "2.5.0",
+    "versao":  "2.6.0",
     "data":  "2026-11-01",
-    "notas":  "Primeira versão publicada",
-    "arquivo":  "https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/v2.5.0/MonitorPC.ps1",
-    "sha256":  "7C3EF73FDC4E60C33EC9A9E7B129CE7669244F55791A3E946AAD76044A882D10"
+    "notas":  "Atualizar programas com um clique, mapa do que ocupa o disco e histórico de travamentos e erros.",
+    "arquivo":  "https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/v2.6.0/MonitorPC.ps1",
+    "sha256":  "4189F0719391C325E507D0090CE32C87CD4D85DF75C7F7BB45E215A73C19361B"
 }
