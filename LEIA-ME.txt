@@ -29,7 +29,12 @@ DICAS
 - A aba Segurança confere antivírus, firewall e se algum programa está disfarçado
   de processo do Windows. Roda sozinha a cada 15 minutos.
 - A aba Aplicativos lista os programas e apps da Store, com botão para desinstalar,
-  e acha restos de antivírus que foram desinstalados pela metade.
+  acha restos de antivírus desinstalados pela metade e mostra quais programas têm
+  atualização (um por um ou "Atualizar todos", pelo winget do Windows).
+- A aba Espaço em disco mostra num mapa de blocos o que mais ocupa o disco, com os
+  maiores arquivos; dá para abrir o local ou mandar para a Lixeira.
+- A aba Travamentos lê os registros do Windows e explica telas azuis, desligamentos
+  inesperados, erros de hardware/disco e programas que fecharam sozinhos.
 - O botão de paleta no topo abre a Aparência: escolha a cor (verde, vermelho, azul,
   roxo, branco...) ou digite qualquer código de cor, e ligue/desligue o brilho neon.
 - A aba Jogos e FPS mede o FPS do jogo aberto, avisa quando ele cai e diz a causa

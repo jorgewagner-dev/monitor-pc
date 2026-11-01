@@ -836,8 +836,10 @@ $XamlTexto = @'
             <RadioButton x:Name="mnJogos" Style="{StaticResource Menu}" Tag="&#xE7FC;" Content="Jogos e FPS"/>
             <RadioButton x:Name="mnProc" Style="{StaticResource Menu}" Tag="&#xE9F5;" Content="Processos"/>
             <RadioButton x:Name="mnApps" Style="{StaticResource Menu}" Tag="&#xE71D;" Content="Aplicativos"/>
+            <RadioButton x:Name="mnEspaco" Style="{StaticResource Menu}" Tag="&#xEDA2;" Content="Espaço em disco"/>
             <RadioButton x:Name="mnAlertas" Style="{StaticResource Menu}" Tag="&#xEA8F;" Content="Alertas"/>
             <RadioButton x:Name="mnVida" Style="{StaticResource Menu}" Tag="&#xE95E;" Content="Vida útil"/>
+            <RadioButton x:Name="mnErros" Style="{StaticResource Menu}" Tag="&#xE7BA;" Content="Travamentos"/>
             <RadioButton x:Name="mnSeg" Style="{StaticResource Menu}" Tag="&#xEA18;" Content="Segurança"/>
             <RadioButton x:Name="mnOtim" Style="{StaticResource Menu}" Tag="&#xEC4A;" Content="Otimizar"/>
           </StackPanel>
@@ -1758,6 +1760,45 @@ $XamlTexto = @'
                 </StackPanel>
               </Border>
 
+              <!-- Atualizações de programas (winget) -->
+              <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="22,16">
+                <StackPanel>
+                  <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                      <Button x:Name="btnUpdProcurar" Style="{StaticResource BtnSecundario}" Content="Procurar atualizações" Margin="0,0,10,0"/>
+                      <Button x:Name="btnUpdTodos" Content="Atualizar todos" Visibility="Collapsed"/>
+                    </StackPanel>
+                    <StackPanel>
+                      <TextBlock x:Name="txtUpdTitulo" Text="Atualizações de programas" Style="{StaticResource TituloCard}"/>
+                      <TextBlock x:Name="txtUpdInfo" Style="{StaticResource Suave}" TextWrapping="Wrap"
+                                 Text="Programas desatualizados são a principal porta de entrada de vírus. Usa o winget, o instalador oficial do Windows."/>
+                    </StackPanel>
+                  </DockPanel>
+                  <ScrollViewer x:Name="svUpd" MaxHeight="230" VerticalScrollBarVisibility="Auto" Margin="0,10,0,0" Visibility="Collapsed">
+                    <ItemsControl x:Name="icUpd">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Background="#141416" CornerRadius="10" Padding="12,7" Margin="0,3">
+                            <DockPanel>
+                              <Button DockPanel.Dock="Right" Content="Atualizar" Tag="atualizar" Style="{StaticResource BtnSecundario}" Padding="12,4" FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                              <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" FontFamily="Consolas" FontSize="12">
+                                <Run Text="{Binding Versao}" Foreground="#8E8E96"/>
+                                <Run Text="  →  " Foreground="#8E8E96"/>
+                                <Run Text="{Binding Nova}" Foreground="#A6F23A"/>
+                              </TextBlock>
+                              <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Id}" Foreground="#8E8E96" FontSize="11"/>
+                              </StackPanel>
+                            </DockPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                </StackPanel>
+              </Border>
+
               <!-- Restos de programas desinstalados -->
               <ItemsControl x:Name="icRestos" DockPanel.Dock="Top">
                 <ItemsControl.ItemTemplate>
@@ -2184,6 +2225,168 @@ $XamlTexto = @'
                 <TextBlock Style="{StaticResource Suave}" Margin="10,0,10,4" TextWrapping="Wrap"
                            Text="Cada problema explica por que acontece e traz comandos prontos. Os comandos abrem numa janela própria e sempre pedem confirmação."/>
                 <StackPanel x:Name="spGuias"/>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <!-- ===================== ESPAÇO EM DISCO ===================== -->
+          <TabItem>
+            <DockPanel Margin="14,0,14,14">
+              <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="22,16">
+                <DockPanel>
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="#141416" CornerRadius="11" Padding="3" BorderBrush="#1F1F23" BorderThickness="1" Margin="0,0,12,0">
+                      <StackPanel x:Name="spEspacoDiscos" Orientation="Horizontal"/>
+                    </Border>
+                    <Button x:Name="btnEspacoAnalisar" Content="Analisar"/>
+                  </StackPanel>
+                  <StackPanel>
+                    <TextBlock Text="O que está ocupando o disco" FontSize="22" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="txtEspacoInfo" Style="{StaticResource Suave}" TextWrapping="Wrap"
+                               Text="Escolha a unidade e clique em Analisar. Leva de alguns segundos a 2 minutos, dependendo da quantidade de arquivos."/>
+                  </StackPanel>
+                </DockPanel>
+              </Border>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="1.8*"/>
+                  <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource Card}" Padding="18,14">
+                  <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button x:Name="btnEspacoAbrir" Style="{StaticResource BtnSecundario}" Content="Abrir no Explorer" Padding="12,5" FontSize="12" Margin="0,0,8,0" IsEnabled="False"/>
+                        <Button x:Name="btnEspacoSubir" Style="{StaticResource BtnSecundario}" Content="↑ Voltar" Padding="12,5" FontSize="12" IsEnabled="False"/>
+                      </StackPanel>
+                      <WrapPanel x:Name="wpEspacoCaminho" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Suave}" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Text="Cada bloco é uma pasta, do tamanho do espaço que ocupa. Clique para entrar; botão direito para abrir ou mandar para a Lixeira."/>
+                    <Grid>
+                      <Canvas x:Name="cvMapa" ClipToBounds="True" MinHeight="300" Background="Transparent"/>
+                      <TextBlock x:Name="txtMapaVazio" Text="Nenhuma análise ainda." Style="{StaticResource Suave}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+                  </DockPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource Card}" Padding="18,14">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Maiores arquivos aqui" Style="{StaticResource TituloCard}" Margin="0,0,0,8"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                      <ItemsControl x:Name="icArquivos">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Border Background="#141416" CornerRadius="10" Padding="10,7" Margin="0,3">
+                              <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                  <Button Content="Abrir" Tag="abrir" Style="{StaticResource BtnSecundario}" Padding="8,3" FontSize="11" Margin="6,0,0,0"/>
+                                  <Button Content="Lixeira" Tag="lixeira" Style="{StaticResource BtnSecundario}" Foreground="#FF7A6E" Padding="8,3" FontSize="11" Margin="4,0,0,0" Visibility="{Binding PodeApagar}"/>
+                                </StackPanel>
+                                <StackPanel>
+                                  <TextBlock><Run Text="{Binding Tamanho}" FontWeight="SemiBold" Foreground="#A6F23A"/><Run Text="  "/><Run Text="{Binding Nome}"/></TextBlock>
+                                  <TextBlock Text="{Binding Pasta}" Foreground="#8E8E96" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding Caminho}"/>
+                                </StackPanel>
+                              </DockPanel>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </ScrollViewer>
+                  </DockPanel>
+                </Border>
+              </Grid>
+            </DockPanel>
+          </TabItem>
+
+          <!-- ===================== TRAVAMENTOS E ERROS ===================== -->
+          <TabItem>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="14,0,14,14">
+              <StackPanel>
+                <Border Style="{StaticResource Card}" Padding="22,16">
+                  <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                      <Border Background="#141416" CornerRadius="11" Padding="3" BorderBrush="#1F1F23" BorderThickness="1" Margin="0,0,12,0">
+                        <StackPanel Orientation="Horizontal">
+                          <RadioButton x:Name="rbErros7" Style="{StaticResource Seg}" GroupName="errosdias" Content="7 dias" Tag="7"/>
+                          <RadioButton x:Name="rbErros30" Style="{StaticResource Seg}" GroupName="errosdias" Content="30 dias" Tag="30" IsChecked="True"/>
+                          <RadioButton x:Name="rbErros90" Style="{StaticResource Seg}" GroupName="errosdias" Content="90 dias" Tag="90"/>
+                        </StackPanel>
+                      </Border>
+                      <Button x:Name="btnErrosAtualizar" Style="{StaticResource BtnSecundario}" Content="Atualizar"/>
+                    </StackPanel>
+                    <StackPanel>
+                      <TextBlock x:Name="txtErrosTitulo" Text="Travamentos e erros" FontSize="22" FontWeight="SemiBold"/>
+                      <TextBlock x:Name="txtErrosResumo" Style="{StaticResource Suave}" TextWrapping="Wrap" Text="Lendo os registros do Windows..."/>
+                    </StackPanel>
+                  </DockPanel>
+                </Border>
+
+                <ItemsControl x:Name="icErrosResumo">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                          <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource Bolha}"><TextBlock Text="{Binding Glifo}" Style="{StaticResource Icone}" Foreground="{Binding Cor}"/></Border>
+                            <TextBlock Text="{Binding Titulo}" Style="{StaticResource Suave}" FontSize="13" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                          </StackPanel>
+                          <TextBlock Text="{Binding Numero}" FontSize="30" FontWeight="SemiBold" Foreground="{Binding Cor}" Margin="0,8,0,0"/>
+                          <TextBlock Text="{Binding Texto}" Style="{StaticResource Suave}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border x:Name="bdErrosApps" Style="{StaticResource Card}" Visibility="Collapsed">
+                  <StackPanel>
+                    <TextBlock Text="Programas que mais fecharam sozinhos" Style="{StaticResource TituloCard}"/>
+                    <ItemsControl x:Name="icErrosApps" Margin="0,8,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Background="#141416" CornerRadius="10" Padding="12,8" Margin="0,3">
+                            <DockPanel>
+                              <TextBlock DockPanel.Dock="Right" Text="{Binding Vezes}" FontSize="18" FontWeight="SemiBold" Foreground="#FFB020" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                              <StackPanel>
+                                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding Detalhe}" Foreground="#8E8E96" FontSize="11" TextWrapping="Wrap"/>
+                              </StackPanel>
+                            </DockPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                  <StackPanel>
+                    <TextBlock Text="Linha do tempo" Style="{StaticResource TituloCard}"/>
+                    <TextBlock x:Name="txtSemErros" Style="{StaticResource Suave}" Margin="0,8,0,0" Visibility="Collapsed"
+                               Text="Nenhum travamento ou erro importante no período. 🎉"/>
+                    <ItemsControl x:Name="icErrosLista" Margin="0,8,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Background="#141416" CornerRadius="10" Padding="12,9" Margin="0,3">
+                            <DockPanel>
+                              <TextBlock DockPanel.Dock="Left" Text="{Binding Quando}" FontFamily="Consolas" Foreground="#8E8E96" FontSize="12" Width="110" Margin="0,2,10,0"/>
+                              <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                  <Border CornerRadius="7" Padding="7,1" Background="{Binding CorFundo}" VerticalAlignment="Center" Margin="0,0,8,0">
+                                    <TextBlock Text="{Binding Tipo}" Foreground="{Binding Cor}" FontSize="11"/>
+                                  </Border>
+                                  <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Dica}" Foreground="#C8C8CE" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                              </StackPanel>
+                            </DockPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
               </StackPanel>
             </ScrollViewer>
           </TabItem>
@@ -3878,6 +4081,519 @@ $timerAtuAgenda.add_Tick({ $timerAtuAgenda.Interval = [TimeSpan]::FromHours(24);
 $timerAtuAgenda.Start()
 #endregion
 
+#region Atualizações de programas (winget)
+$script:updJob = $null
+$script:Updates = @()
+
+$ScriptUpdates = {
+    [Console]::OutputEncoding = [Text.Encoding]::UTF8   # o winget escreve em UTF-8 (acentos dos nomes)
+    $saida = @(& winget upgrade --accept-source-agreements --disable-interactivity 2>&1 | ForEach-Object { "$_" })
+    $lista = New-Object System.Collections.Generic.List[object]
+    # A tabela do winget tem colunas de largura fixa: as posições vêm do cabeçalho (linha antes do "-----")
+    for ($i = 0; $i -lt $saida.Count - 1; $i++) {
+        if ($saida[$i + 1] -notmatch '^-{10,}') { continue }
+        $cab = ($saida[$i] -split "`r")[-1]
+        $pos = @([regex]::Matches($cab, '\S+') | ForEach-Object { $_.Index })
+        if ($pos.Count -lt 4) { break }
+        for ($k = $i + 2; $k -lt $saida.Count; $k++) {
+            $l = ($saida[$k] -split "`r")[-1]
+            if (-not $l.Trim() -or $l -match '^\d+\s') { break }   # fim da tabela ("23 atualizações disponíveis")
+            if ($l.Length -le $pos[3]) { continue }
+            $col = foreach ($n in 0..3) {
+                $ini = $pos[$n]; $fim = [Math]::Min($l.Length, $(if ($n + 1 -lt $pos.Count) { $pos[$n + 1] } else { $l.Length }))
+                if ($ini -lt $l.Length) { $l.Substring($ini, $fim - $ini).Trim() } else { '' }
+            }
+            if ($col[1] -and $col[1] -notmatch '…') {
+                $lista.Add([pscustomobject]@{ Nome = $col[0].TrimEnd('…'); Id = $col[1]; Versao = $col[2]; Nova = $col[3] })
+            }
+        }
+        break
+    }
+    $semWinget = -not (Get-Command winget -ErrorAction SilentlyContinue)
+    [pscustomobject]@{ Itens = [object[]]$lista.ToArray(); SemWinget = $semWinget }
+}
+
+function Start-ProcurarUpdates {
+    if ($script:updJob) { return }
+    # Console largo: o winget corta nomes e IDs para caber na largura da janela
+    try { if ([Console]::BufferWidth -lt 300) { [Console]::BufferWidth = 400 } } catch {}
+    $ui.btnUpdProcurar.IsEnabled = $false
+    $ui.txtUpdInfo.Text = 'Procurando atualizações...'
+    $ps = [powershell]::Create()
+    [void]$ps.AddScript($ScriptUpdates)
+    $script:updJob = @{ Ps = $ps; Handle = $ps.BeginInvoke() }
+    $timerUpd.Start()
+}
+
+$timerUpd = New-Object Windows.Threading.DispatcherTimer
+$timerUpd.Interval = [TimeSpan]::FromMilliseconds(400)
+$timerUpd.add_Tick({
+    $j = $script:updJob
+    if (-not $j -or -not $j.Handle.IsCompleted) { return }
+    $timerUpd.Stop()
+    try {
+        $r = $j.Ps.EndInvoke($j.Handle) | Select-Object -Last 1
+        $script:Updates = @($r.Itens)
+        $ui.icUpd.ItemsSource = $script:Updates
+        $n = $script:Updates.Count
+        if ($r.SemWinget) {
+            $ui.txtUpdTitulo.Text = 'Atualizações de programas'
+            $ui.txtUpdInfo.Text = 'O winget não está instalado. Instale o "Instalador de Aplicativo" pela Microsoft Store para usar esta função.'
+        } elseif ($n) {
+            $ui.txtUpdTitulo.Text = "$n programa(s) com atualização"
+            $ui.txtUpdInfo.Text = 'Atualize um por um ou todos de uma vez. Cada atualização abre numa janela para você acompanhar.'
+        } else {
+            $ui.txtUpdTitulo.Text = 'Programas em dia'
+            $ui.txtUpdInfo.Text = "Nenhuma atualização disponível. Verificado às $((Get-Date).ToString('HH:mm'))."
+        }
+        $ui.svUpd.Visibility = if ($n) { 'Visible' } else { 'Collapsed' }
+        $ui.btnUpdTodos.Visibility = if ($n -gt 1) { 'Visible' } else { 'Collapsed' }
+    } catch {
+        $ui.txtUpdInfo.Text = "Não foi possível procurar: $($_.Exception.Message)"
+    } finally { $j.Ps.Dispose(); $script:updJob = $null; $ui.btnUpdProcurar.IsEnabled = $true }
+})
+
+$ui.btnUpdProcurar.add_Click({ Start-ProcurarUpdates })
+$ui.btnUpdTodos.add_Click({
+    Invoke-Comando @{
+        Titulo = "Atualizar $($script:Updates.Count) programas"; Admin = $false
+        Descricao = "Baixa e instala as versões novas de: $(($script:Updates | Select-Object -First 8 | ForEach-Object { $_.Nome }) -join ', ')$(if ($script:Updates.Count -gt 8) { '...' })`n`nAlguns instaladores pedem permissão do Windows — confirme. Ao continuar, você aceita os termos de licença desses programas. Feche os programas que serão atualizados antes."
+        Script = 'winget upgrade --all --accept-package-agreements --accept-source-agreements'
+    }
+})
+$ui.icUpd.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($s, $e)
+    $item = $e.OriginalSource.DataContext
+    if (-not $item -or $e.OriginalSource.Tag -ne 'atualizar') { return }
+    $id = $item.Id -replace '[^\w\.\-+]', ''   # o ID vai num comando: só letras, números, ponto, hífen e +
+    Invoke-Comando @{
+        Titulo = "Atualizar $($item.Nome)"; Admin = $false
+        Descricao = "Baixa e instala $($item.Nome) $($item.Nova) (você tem a $($item.Versao)).`n`nSe o instalador pedir permissão do Windows, confirme. Ao continuar, você aceita os termos de licença do programa. Feche o programa antes."
+        Script = "winget upgrade --id `"$id`" -e --accept-package-agreements --accept-source-agreements"
+    }
+})
+#endregion
+
+#region Espaço em disco
+Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.IO;
+namespace MonitorPC {
+    public class NoPasta {
+        public string Nome; public string Caminho; public long Tamanho; public long Soltos; public NoPasta Pai;
+        public List<NoPasta> Filhos = new List<NoPasta>();
+    }
+    // Percorre as pastas somando tamanhos. Guarda a árvore até "Profundidade" níveis (só pastas com 1 MB ou mais)
+    // e os maiores arquivos. Pula atalhos de pasta (junctions) para não contar nada duas vezes.
+    public class Varredura {
+        public volatile int Pastas;
+        public volatile bool Cancelar;
+        public int Profundidade = 8;
+        public List<KeyValuePair<long, string>> Maiores = new List<KeyValuePair<long, string>>();
+        long menorGuardado = 0;
+        void Guardar(long t, string c) {
+            if (t < 50L * 1024 * 1024 || (Maiores.Count >= 400 && t <= menorGuardado)) return;
+            Maiores.Add(new KeyValuePair<long, string>(t, c));
+            if (Maiores.Count > 800) {
+                Maiores.Sort((a, b) => b.Key.CompareTo(a.Key));
+                Maiores.RemoveRange(400, Maiores.Count - 400);
+                menorGuardado = Maiores[Maiores.Count - 1].Key;
+            }
+        }
+        public NoPasta Escanear(string raiz) {
+            var r = Rec(new DirectoryInfo(raiz), 0, null);
+            Maiores.Sort((a, b) => b.Key.CompareTo(a.Key));
+            return r;
+        }
+        NoPasta Rec(DirectoryInfo d, int nivel, NoPasta pai) {
+            var no = new NoPasta { Nome = d.Name, Caminho = d.FullName, Pai = pai };
+            Pastas++;
+            try { foreach (var f in d.EnumerateFiles()) { try { long t = f.Length; no.Soltos += t; Guardar(t, f.FullName); } catch { } } } catch { }
+            no.Tamanho = no.Soltos;
+            try {
+                foreach (var s in d.EnumerateDirectories()) {
+                    if (Cancelar) break;
+                    try { if ((s.Attributes & FileAttributes.ReparsePoint) != 0) continue; } catch { continue; }
+                    var filho = Rec(s, nivel + 1, no);
+                    no.Tamanho += filho.Tamanho;
+                    if (nivel < Profundidade && filho.Tamanho >= 1024L * 1024) no.Filhos.Add(filho);
+                }
+            } catch { }
+            no.Filhos.Sort((a, b) => b.Tamanho.CompareTo(a.Tamanho));
+            return no;
+        }
+    }
+}
+'@
+
+$script:Varredura = $null
+$script:espacoJob = $null
+$script:NoAtual = $null
+$script:UnidadeEspaco = $env:SystemDrive.Substring(0, 1)
+
+# Pastas do sistema: dá para olhar, mas o Monitor não oferece mandar para a Lixeira
+$PastasProtegidas = @("$env:windir", "$env:ProgramFiles", "${env:ProgramFiles(x86)}", "$env:ProgramData", "$env:SystemDrive\`$Recycle.Bin",
+    "$env:SystemDrive\System Volume Information", "$env:SystemDrive\Recovery", "$env:USERPROFILE\AppData") | Where-Object { $_ }
+function Test-Protegido([string]$c) {
+    if ($c.Length -le 3) { return $true }   # raiz da unidade
+    if ($c -eq $env:USERPROFILE -or $c -eq (Split-Path $env:USERPROFILE)) { return $true }
+    foreach ($p in $PastasProtegidas) { if ($c.Equals($p, 'OrdinalIgnoreCase') -or $c.StartsWith($p + '\', [StringComparison]::OrdinalIgnoreCase)) { return $true } }
+    $c -match '\\(pagefile|hiberfil|swapfile)\.sys$'
+}
+
+function Format-Bytes([double]$b) {
+    if ($b -ge 1TB) { '{0:N2} TB' -f ($b / 1TB) } elseif ($b -ge 1GB) { '{0:N1} GB' -f ($b / 1GB) } elseif ($b -ge 1MB) { '{0:N0} MB' -f ($b / 1MB) } else { '{0:N0} KB' -f ($b / 1KB) }
+}
+
+function Update-DiscosEspaco {
+    $ui.spEspacoDiscos.Children.Clear()
+    foreach ($d in [IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' -and $_.IsReady }) {
+        $letra = $d.Name.Substring(0, 1)
+        $rb = New-Object Windows.Controls.RadioButton
+        $rb.Style = $window.FindResource('Seg'); $rb.GroupName = 'espaco'; $rb.Content = "${letra}:"; $rb.Tag = $letra
+        $rb.IsChecked = $letra -eq $script:UnidadeEspaco
+        $rb.add_Checked({ param($s, $e) $script:UnidadeEspaco = $s.Tag })
+        [void]$ui.spEspacoDiscos.Children.Add($rb)
+    }
+}
+
+# Treemap "squarified": divide o retângulo em blocos proporcionais aos tamanhos, o mais quadrados possível
+function Get-Pior([double[]]$linha, [double]$lado) {
+    $s = ($linha | Measure-Object -Sum).Sum
+    $max = ($linha | Measure-Object -Maximum).Maximum; $min = ($linha | Measure-Object -Minimum).Minimum
+    [Math]::Max($lado * $lado * $max / ($s * $s), ($s * $s) / ($lado * $lado * $min))
+}
+function Get-Treemap([double[]]$valores, [double]$x, [double]$y, [double]$w, [double]$h) {
+    $tot = ($valores | Measure-Object -Sum).Sum
+    $areas = @($valores | ForEach-Object { $_ / $tot * $w * $h })
+    $rects = New-Object System.Collections.Generic.List[object]
+    $i = 0
+    while ($i -lt $areas.Count) {
+        $lado = [Math]::Min($w, $h)
+        $linha = @($areas[$i]); $j = $i + 1
+        $pior = Get-Pior $linha $lado
+        while ($j -lt $areas.Count) {
+            $teste = $linha + $areas[$j]
+            $p2 = Get-Pior $teste $lado
+            if ($p2 -gt $pior) { break }
+            $linha = $teste; $pior = $p2; $j++
+        }
+        $soma = ($linha | Measure-Object -Sum).Sum
+        if ($w -ge $h) {
+            $cw = $soma / $h; $cy = $y
+            foreach ($a in $linha) { $ch = $a / $cw; $rects.Add(@($x, $cy, $cw, $ch)); $cy += $ch }
+            $x += $cw; $w -= $cw
+        } else {
+            $rh = $soma / $w; $cx = $x
+            foreach ($a in $linha) { $cw2 = $a / $rh; $rects.Add(@($cx, $y, $cw2, $rh)); $cx += $cw2 }
+            $y += $rh; $h -= $rh
+        }
+        $i = $j
+    }
+    $rects
+}
+
+function Show-Pasta($no) {
+    if (-not $no) { return }
+    $script:NoAtual = $no
+    $ui.txtMapaVazio.Visibility = 'Collapsed'
+    $ui.btnEspacoSubir.IsEnabled = [bool]$no.Pai
+    $ui.btnEspacoAbrir.IsEnabled = $true
+    # Caminho clicável (migalhas de pão)
+    $ui.wpEspacoCaminho.Children.Clear()
+    $cadeia = @(); $n = $no; while ($n) { $cadeia = @($n) + $cadeia; $n = $n.Pai }
+    foreach ($c in $cadeia) {
+        $b = New-Object Windows.Controls.Button
+        $b.Style = $window.FindResource('Link'); $b.Content = $(if ($c.Pai) { $c.Nome } else { $c.Caminho.TrimEnd('\') }) + '  ›  '
+        $b.Tag = $c; $b.Margin = '0,0,2,0'
+        $b.add_Click({ param($s, $e) Show-Pasta $s.Tag })
+        [void]$ui.wpEspacoCaminho.Children.Add($b)
+    }
+    $ui.txtEspacoInfo.Text = "$($no.Caminho) · $(Format-Bytes $no.Tamanho)"
+
+    # Blocos: as maiores subpastas + "arquivos soltos" + "outros"
+    $itens = New-Object System.Collections.Generic.List[object]
+    foreach ($f in $no.Filhos | Select-Object -First 28) { $itens.Add(@{ Nome = $f.Nome; Tam = [double]$f.Tamanho; No = $f }) }
+    $resto = $no.Tamanho - $no.Soltos - (($itens | ForEach-Object { $_.Tam } | Measure-Object -Sum).Sum)
+    if ($no.Soltos -gt 0) { $itens.Add(@{ Nome = 'Arquivos desta pasta'; Tam = [double]$no.Soltos; No = $null }) }
+    if ($resto -gt 1MB) { $itens.Add(@{ Nome = 'Outras pastas pequenas'; Tam = [double]$resto; No = $null }) }
+    $itens = @($itens | Where-Object { $_.Tam -gt 0 } | Sort-Object { $_.Tam } -Descending)
+    $ui.cvMapa.Children.Clear()
+    $W = $ui.cvMapa.ActualWidth; $H = $ui.cvMapa.ActualHeight
+    if ($itens.Count -and $W -gt 10 -and $H -gt 10) {
+        $rects = Get-Treemap ([double[]]@($itens | ForEach-Object { $_.Tam })) 0 0 $W $H
+        $tons = @('A6F23A', '7BC62D', '5DB82A', '4E9A1E', '3E6B12')
+        for ($i = 0; $i -lt $itens.Count; $i++) {
+            $it = $itens[$i]; $r = $rects[$i]
+            $bd = New-Object Windows.Controls.Border
+            $bd.Width = [Math]::Max(0, $r[2] - 3); $bd.Height = [Math]::Max(0, $r[3] - 3)
+            $bd.CornerRadius = 8
+            $alfa = if ($it.No) { [int](200 - [Math]::Min(150, $i * 7)) } else { 60 }
+            $bd.Background = Get-Pincel ('#{0:X2}{1}' -f $alfa, $Paleta[$tons[$i % $tons.Count]])
+            $bd.ToolTip = "$($it.Nome)`n$(Format-Bytes $it.Tam) ($('{0:N0}' -f ($it.Tam / [Math]::Max([double]1, [double]$no.Tamanho) * 100))%)"
+            if ($bd.Width -gt 70 -and $bd.Height -gt 34) {
+                $sp = New-Object Windows.Controls.StackPanel; $sp.Margin = '8,5'
+                $t1 = New-Object Windows.Controls.TextBlock; $t1.Text = $it.Nome; $t1.FontWeight = 'SemiBold'; $t1.TextTrimming = 'CharacterEllipsis'; $t1.Foreground = Get-Pincel '#0B0B0D'
+                $t2 = New-Object Windows.Controls.TextBlock; $t2.Text = Format-Bytes $it.Tam; $t2.FontSize = 11; $t2.Foreground = Get-Pincel '#1F1F23'
+                [void]$sp.Children.Add($t1); [void]$sp.Children.Add($t2)
+                $bd.Child = $sp
+            }
+            if ($it.No) {
+                $bd.Cursor = 'Hand'; $bd.Tag = $it.No
+                $bd.add_MouseLeftButtonUp({ param($s, $e) if ($s.Tag.Filhos.Count -or $s.Tag.Soltos) { Show-Pasta $s.Tag } })
+                $menu = New-Object Windows.Controls.ContextMenu
+                $m1 = New-Object Windows.Controls.MenuItem; $m1.Header = 'Abrir no Explorer'; $m1.Tag = $it.No
+                $m1.add_Click({ param($s, $e) Start-Process explorer.exe "`"$($s.Tag.Caminho)`"" })
+                [void]$menu.Items.Add($m1)
+                if (-not (Test-Protegido $it.No.Caminho)) {
+                    $m2 = New-Object Windows.Controls.MenuItem; $m2.Header = 'Enviar para a Lixeira...'; $m2.Tag = $it.No
+                    $m2.add_Click({ param($s, $e) Remove-ParaLixeira $s.Tag.Caminho $true $s.Tag })
+                    [void]$menu.Items.Add($m2)
+                }
+                $bd.ContextMenu = $menu
+            }
+            [Windows.Controls.Canvas]::SetLeft($bd, $r[0]); [Windows.Controls.Canvas]::SetTop($bd, $r[1])
+            [void]$ui.cvMapa.Children.Add($bd)
+        }
+    }
+    # Maiores arquivos dentro da pasta atual
+    $prefixo = $no.Caminho.TrimEnd('\') + '\'
+    $ui.icArquivos.ItemsSource = @($script:Varredura.Maiores | Where-Object { $_.Value.StartsWith($prefixo, [StringComparison]::OrdinalIgnoreCase) } |
+        Select-Object -First 30 | ForEach-Object {
+            [pscustomobject]@{
+                Nome = [IO.Path]::GetFileName($_.Value); Pasta = [IO.Path]::GetDirectoryName($_.Value); Caminho = $_.Value
+                Tamanho = Format-Bytes $_.Key; PodeApagar = $(if (Test-Protegido $_.Value) { 'Collapsed' } else { 'Visible' })
+            } })
+}
+
+# Manda para a Lixeira (dá para recuperar) e desconta o tamanho da árvore
+function Remove-ParaLixeira([string]$caminho, [bool]$pasta, $no) {
+    if (Test-Protegido $caminho) { return }
+    $tam = if ($no) { $no.Tamanho } else { try { (Get-Item -LiteralPath $caminho -Force).Length } catch { 0 } }
+    $r = [Windows.MessageBox]::Show("Enviar para a Lixeira?`n`n$caminho`n$(Format-Bytes $tam)`n`nDá para recuperar pela Lixeira enquanto ela não for esvaziada.", $AppNome, 'YesNo', 'Warning')
+    if ($r -ne 'Yes') { return }
+    try {
+        if ($pasta) {
+            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($caminho, 'OnlyErrorDialogs', 'SendToRecycleBin')
+        } else {
+            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($caminho, 'OnlyErrorDialogs', 'SendToRecycleBin')
+        }
+    } catch {
+        [Windows.MessageBox]::Show("Não foi possível: $($_.Exception.Message)", $AppNome) | Out-Null
+        return
+    }
+    # Atualiza os tamanhos sem precisar analisar tudo de novo
+    if ($no) {
+        $dono = $no.Pai
+        if ($dono) { [void]$dono.Filhos.Remove($no) }
+    } else {
+        $k = $script:Varredura.Maiores | Where-Object { $_.Value -eq $caminho } | Select-Object -First 1
+        if ($k) { [void]$script:Varredura.Maiores.Remove($k) }
+        # Desce da raiz até a pasta mais funda (guardada na árvore) que contém o arquivo
+        $dono = $script:NoAtual; while ($dono.Pai) { $dono = $dono.Pai }
+        $dirArq = [IO.Path]::GetDirectoryName($caminho)
+        do {
+            $prox = $dono.Filhos | Where-Object { $dirArq -eq $_.Caminho -or $dirArq.StartsWith($_.Caminho + '\', [StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1
+            if ($prox) { $dono = $prox }
+        } while ($prox)
+        if ($dirArq -eq $dono.Caminho.TrimEnd('\')) { $dono.Soltos -= $tam }
+    }
+    $n = $dono
+    while ($n) { $n.Tamanho -= $tam; $n = $n.Pai }
+    Show-Pasta $script:NoAtual
+}
+
+$timerEspaco = New-Object Windows.Threading.DispatcherTimer
+$timerEspaco.Interval = [TimeSpan]::FromMilliseconds(300)
+$timerEspaco.add_Tick({
+    $j = $script:espacoJob
+    if (-not $j) { $timerEspaco.Stop(); return }
+    if (-not $j.Handle.IsCompleted) {
+        $ui.txtEspacoInfo.Text = "Analisando $($script:UnidadeEspaco): ... $('{0:N0}' -f $script:Varredura.Pastas) pastas lidas"
+        return
+    }
+    $timerEspaco.Stop()
+    try {
+        $raiz = $j.Ps.EndInvoke($j.Handle) | Select-Object -Last 1
+        Show-Pasta $raiz
+        $ui.txtEspacoInfo.Text = "$($raiz.Caminho) · $(Format-Bytes $raiz.Tamanho) em $('{0:N0}' -f $script:Varredura.Pastas) pastas · analisado em $([int]((Get-Date) - $j.Inicio).TotalSeconds) s"
+    } catch {
+        $ui.txtEspacoInfo.Text = "Erro na análise: $($_.Exception.Message)"
+    } finally { $j.Ps.Dispose(); $script:espacoJob = $null; $ui.btnEspacoAnalisar.IsEnabled = $true }
+})
+
+$ui.btnEspacoAnalisar.add_Click({
+    if ($script:espacoJob) { return }
+    $script:Varredura = New-Object MonitorPC.Varredura
+    $ui.btnEspacoAnalisar.IsEnabled = $false
+    $ui.cvMapa.Children.Clear(); $ui.icArquivos.ItemsSource = $null; $ui.wpEspacoCaminho.Children.Clear()
+    $ui.txtMapaVazio.Text = 'Analisando...'; $ui.txtMapaVazio.Visibility = 'Visible'
+    $ps = [powershell]::Create()
+    [void]$ps.AddScript({ param($v, $raiz) $v.Escanear($raiz) }).AddArgument($script:Varredura).AddArgument("$($script:UnidadeEspaco):\")
+    $script:espacoJob = @{ Ps = $ps; Handle = $ps.BeginInvoke(); Inicio = Get-Date }
+    $timerEspaco.Start()
+})
+$ui.btnEspacoSubir.add_Click({ if ($script:NoAtual.Pai) { Show-Pasta $script:NoAtual.Pai } })
+$ui.btnEspacoAbrir.add_Click({ if ($script:NoAtual) { Start-Process explorer.exe "`"$($script:NoAtual.Caminho)`"" } })
+$ui.cvMapa.add_SizeChanged({ if ($script:NoAtual) { Show-Pasta $script:NoAtual } })
+$ui.icArquivos.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($s, $e)
+    $item = $e.OriginalSource.DataContext
+    if (-not $item) { return }
+    switch ($e.OriginalSource.Tag) {
+        'abrir'   { Start-Process explorer.exe "/select,`"$($item.Caminho)`"" }
+        'lixeira' { Remove-ParaLixeira $item.Caminho $false $null }
+    }
+})
+#endregion
+
+#region Travamentos e erros (registros do Windows)
+$script:errosJob = $null
+$script:ErrosCarregados = $false
+
+$ScriptErros = {
+    param($dias)
+    $ini = (Get-Date).AddDays(-$dias)
+    $itens = New-Object System.Collections.Generic.List[object]
+    function Add-Evento($quando, $cat, $titulo, $dica) { $itens.Add([pscustomobject]@{ Data = $quando; Cat = $cat; Titulo = $titulo; Dica = $dica }) }
+    function Get-Eventos($filtro) { @(Get-WinEvent -FilterHashtable $filtro -ErrorAction SilentlyContinue) }
+
+    # O que cada código de tela azul costuma significar
+    $codigos = @{
+        0x1A  = @('MEMORY_MANAGEMENT', 'Problema de memória RAM. Rode o Diagnóstico de Memória (aba Otimizar) e, se tiver overclock/XMP, teste sem.')
+        0x3B  = @('SYSTEM_SERVICE_EXCEPTION', 'Quase sempre um driver com defeito. Atualize o driver de vídeo e os do chipset; rode o SFC.')
+        0x50  = @('PAGE_FAULT_IN_NONPAGED_AREA', 'Driver ou RAM com problema. Atualize drivers e rode o Diagnóstico de Memória.')
+        0x7E  = @('SYSTEM_THREAD_EXCEPTION_NOT_HANDLED', 'Driver com defeito. Veja se instalou algum programa ou driver novo antes de começar.')
+        0x0A  = @('IRQL_NOT_LESS_OR_EQUAL', 'Driver ou RAM. Atualize drivers (vídeo, rede, chipset) e teste a memória.')
+        0xD1  = @('DRIVER_IRQL_NOT_LESS_OR_EQUAL', 'Driver com defeito — muito comum no driver de rede/Wi-Fi. Atualize-o pelo site do fabricante.')
+        0x124 = @('WHEA_UNCORRECTABLE_ERROR', 'Erro de HARDWARE: processador, RAM ou fonte. Confira temperatura, tire overclock e verifique a fonte.')
+        0x116 = @('VIDEO_TDR_FAILURE', 'O driver de vídeo travou e não voltou. Reinstale o driver da placa (limpo) e confira a temperatura da GPU.')
+        0x117 = @('VIDEO_TDR_TIMEOUT_DETECTED', 'Driver de vídeo travou. Atualize/reinstale o driver e veja se a placa não está esquentando.')
+        0x133 = @('DPC_WATCHDOG_VIOLATION', 'Um driver ficou tempo demais ocupado — comum em driver de SSD/armazenamento. Atualize o firmware do SSD e os drivers.')
+        0x139 = @('KERNEL_SECURITY_CHECK_FAILURE', 'Driver ou arquivo do sistema corrompido. Rode SFC e DISM (aba Otimizar) e atualize drivers.')
+        0xEF  = @('CRITICAL_PROCESS_DIED', 'Um processo essencial do Windows morreu. Rode SFC e DISM; verifique o disco.')
+        0x9F  = @('DRIVER_POWER_STATE_FAILURE', 'Driver não respondeu ao suspender/ligar. Atualize drivers e desative a Inicialização Rápida.')
+        0x7A  = @('KERNEL_DATA_INPAGE_ERROR', 'O Windows não conseguiu ler o disco. Faça backup e verifique a saúde do SSD/HD e o cabo.')
+        0xF4  = @('CRITICAL_OBJECT_TERMINATION', 'Falha ao acessar o disco do sistema. Verifique a saúde do disco e os cabos.')
+    }
+
+    # Telas azuis
+    foreach ($e in Get-Eventos @{ LogName = 'System'; Id = 1001; ProviderName = 'Microsoft-Windows-WER-SystemErrorReporting'; StartTime = $ini }) {
+        $hex = [regex]::Match($e.Message, '0x[0-9a-fA-F]{8}').Value
+        $info = $null
+        if ($hex) { $info = $codigos[[int]([Convert]::ToInt64($hex, 16) -band 0xFFFF)] }
+        $nome = if ($info) { "$($info[0]) ($hex)" } elseif ($hex) { $hex } else { 'código desconhecido' }
+        Add-Evento $e.TimeCreated 'tela_azul' "Tela azul: $nome" $(if ($info) { $info[1] } else { 'Pesquise o código do erro; atualize drivers e rode SFC/DISM.' })
+    }
+    # Desligou de repente sem tela azul (Kernel-Power 41 com código 0)
+    foreach ($e in Get-Eventos @{ LogName = 'System'; Id = 41; ProviderName = 'Microsoft-Windows-Kernel-Power'; StartTime = $ini }) {
+        if ([int64]$e.Properties[0].Value -ne 0) { continue }   # com código = já aparece como tela azul
+        Add-Evento $e.TimeCreated 'desligou' 'O PC desligou de repente (sem tela azul)' 'Queda de energia, botão segurado, fonte fraca ou superaquecimento. Se acontece jogando, suspeite da FONTE ou da temperatura.'
+    }
+    # Erros de hardware
+    foreach ($e in Get-Eventos @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-WHEA-Logger'; StartTime = $ini }) {
+        $grave = $e.Level -le 2
+        Add-Evento $e.TimeCreated 'hardware' $(if ($grave) { 'Erro de hardware' } else { 'Erro de hardware corrigido pelo Windows' }) `
+            $(if ($grave) { 'Sinal sério: processador, RAM, placa-mãe ou fonte. Tire overclock, confira temperaturas e teste a RAM.' } else { 'O Windows corrigiu sozinho. Se aparecer muitas vezes, costuma ser a porta PCIe (placa de vídeo/SSD) ou overclock instável.' })
+    }
+    # Driver de vídeo parou e voltou
+    foreach ($e in @(Get-Eventos @{ LogName = 'System'; Id = 4101; StartTime = $ini }) + @(Get-Eventos @{ LogName = 'System'; ProviderName = 'nvlddmkm'; Id = 13, 14, 153; StartTime = $ini })) {
+        Add-Evento $e.TimeCreated 'video' 'O driver de vídeo parou e foi reiniciado' 'A tela pisca ou o jogo fecha. Atualize/reinstale o driver da placa, tire overclock da GPU e confira a temperatura.'
+    }
+    # Erros de disco
+    foreach ($e in Get-Eventos @{ LogName = 'System'; ProviderName = 'disk', 'Ntfs', 'stornvme', 'storahci'; Level = 1, 2, 3; StartTime = $ini }) {
+        $txt = switch ($e.Id) { 7 { 'Setor defeituoso no disco' } 129 { 'O disco parou de responder e foi reiniciado' } 153 { 'O disco demorou para responder' } 55 { 'Sistema de arquivos corrompido' } default { "Erro no disco (código $($e.Id))" } }
+        Add-Evento $e.TimeCreated 'disco' $txt 'Faça backup do que é importante. Veja a saúde do disco (aba Vida útil) e rode "Verificar o disco" na aba Otimizar.'
+    }
+    # Programas que fecharam sozinhos ou travaram
+    foreach ($e in Get-Eventos @{ LogName = 'Application'; Id = 1000; ProviderName = 'Application Error'; StartTime = $ini }) {
+        $app = "$($e.Properties[0].Value)"; $mod = "$($e.Properties[3].Value)"
+        $dica = if ($mod -match '^(nvwgf2|nvd3d|nvoglv|atio|atidxx|amdxx|igd)') { 'O erro foi no driver de vídeo: atualize-o.' }
+                elseif ($mod -match '^(KERNELBASE|ntdll|ucrtbase|msvcp|vcruntime)') { 'Erro genérico do programa: atualize-o (aba Aplicativos) ou reinstale.' }
+                else { "Erro no componente $mod. Atualize ou reinstale o programa." }
+        Add-Evento $e.TimeCreated 'app' "$app fechou sozinho" $dica
+    }
+    foreach ($e in Get-Eventos @{ LogName = 'Application'; Id = 1002; ProviderName = 'Application Hang'; StartTime = $ini }) {
+        Add-Evento $e.TimeCreated 'trava' "$($e.Properties[0].Value) parou de responder" 'O programa congelou e foi fechado. Se acontece sempre, atualize-o ou veja se o disco/RAM estão no limite.'
+    }
+    [pscustomobject]@{ Itens = [object[]]($itens | Sort-Object Data -Descending); Dias = $dias }
+}
+
+$CategoriasErro = [ordered]@{
+    tela_azul = @{ Titulo = 'Telas azuis';             Glifo = 0xE7BA; Cor = '#FF5A4D'; Tipo = 'Tela azul' }
+    desligou  = @{ Titulo = 'Desligou de repente';     Glifo = 0xE7E8; Cor = '#FF5A4D'; Tipo = 'Desligamento' }
+    hardware  = @{ Titulo = 'Erros de hardware';       Glifo = 0xE950; Cor = '#FF5A4D'; Tipo = 'Hardware' }
+    video     = @{ Titulo = 'Driver de vídeo travou';  Glifo = 0xE7F4; Cor = '#FFB020'; Tipo = 'Vídeo' }
+    disco     = @{ Titulo = 'Erros de disco';          Glifo = 0xEDA2; Cor = '#FF5A4D'; Tipo = 'Disco' }
+    app       = @{ Titulo = 'Programas que fecharam';  Glifo = 0xE71D; Cor = '#FFB020'; Tipo = 'Programa' }
+}
+
+function Start-Erros {
+    if ($script:errosJob) { return }
+    $dias = 30
+    foreach ($rb in $ui.rbErros7, $ui.rbErros30, $ui.rbErros90) { if ($rb.IsChecked) { $dias = [int]$rb.Tag } }
+    $ui.txtErrosResumo.Text = 'Lendo os registros do Windows...'
+    $ps = [powershell]::Create()
+    [void]$ps.AddScript($ScriptErros).AddArgument($dias)
+    $script:errosJob = @{ Ps = $ps; Handle = $ps.BeginInvoke() }
+    $timerErros.Start()
+}
+
+function Show-Erros($r) {
+    $itens = @($r.Itens)
+    $resumo = foreach ($k in $CategoriasErro.Keys) {
+        $c = $CategoriasErro[$k]
+        $n = @($itens | Where-Object { $_.Cat -eq $k -or ($k -eq 'app' -and $_.Cat -eq 'trava') }).Count
+        $texto = if ($n -eq 0) { 'Nenhum no período.' } else {
+            $ult = $itens | Where-Object { $_.Cat -eq $k -or ($k -eq 'app' -and $_.Cat -eq 'trava') } | Select-Object -First 1
+            "Último em $($ult.Data.ToString('dd/MM HH:mm'))"
+        }
+        [pscustomobject]@{ Titulo = $c.Titulo; Glifo = [string][char]$c.Glifo; Numero = $n; Texto = $texto; Cor = $(if ($n) { $c.Cor } else { $Cor.Lima }) }
+    }
+    $ui.icErrosResumo.ItemsSource = @($resumo)
+
+    $graves = @($itens | Where-Object { $_.Cat -in 'tela_azul', 'desligou', 'hardware', 'disco' }).Count
+    $ui.txtErrosTitulo.Text = if ($graves) { "Travamentos e erros — $graves problema(s) sério(s)" } elseif ($itens.Count) { 'Travamentos e erros — só problemas de programas' } else { 'Travamentos e erros — tudo estável' }
+    $ui.txtErrosResumo.Text = "Últimos $($r.Dias) dias, lidos dos registros do Windows às $((Get-Date).ToString('HH:mm')). " +
+        $(if ($graves) { 'Veja a dica de cada um na linha do tempo.' } elseif ($itens.Count) { 'Nenhuma tela azul, desligamento inesperado ou erro de hardware.' } else { 'Nenhuma tela azul, desligamento, erro de hardware ou programa travando.' })
+
+    # Programas que mais fecharam/travaram
+    $apps = @($itens | Where-Object { $_.Cat -in 'app', 'trava' } | Group-Object { ($_.Titulo -replace ' (fechou sozinho|parou de responder)$', '') } |
+        Sort-Object Count -Descending | Select-Object -First 6 | ForEach-Object {
+            $fechou = @($_.Group | Where-Object { $_.Cat -eq 'app' }).Count; $travou = @($_.Group | Where-Object { $_.Cat -eq 'trava' }).Count
+            [pscustomobject]@{
+                Nome = $_.Name; Vezes = "$($_.Count)x"
+                Detalhe = ((@($(if ($fechou) { "fechou sozinho $fechou vez(es)" }), $(if ($travou) { "congelou $travou vez(es)" })) | Where-Object { $_ }) -join ' · ') +
+                          " · último em $($_.Group[0].Data.ToString('dd/MM HH:mm')). $($_.Group[0].Dica)"
+            } })
+    $ui.icErrosApps.ItemsSource = $apps
+    $ui.bdErrosApps.Visibility = if ($apps.Count) { 'Visible' } else { 'Collapsed' }
+
+    $ui.icErrosLista.ItemsSource = @($itens | Select-Object -First 120 | ForEach-Object {
+        $c = $CategoriasErro[$(if ($_.Cat -eq 'trava') { 'app' } else { $_.Cat })]
+        [pscustomobject]@{
+            Quando = $_.Data.ToString('dd/MM HH:mm'); Tipo = $c.Tipo; Cor = $c.Cor; CorFundo = '#22' + $c.Cor.TrimStart('#')
+            Titulo = $_.Titulo; Dica = $_.Dica
+        } })
+    $ui.txtSemErros.Visibility = if ($itens.Count) { 'Collapsed' } else { 'Visible' }
+    $script:ErrosCarregados = $true
+}
+
+$timerErros = New-Object Windows.Threading.DispatcherTimer
+$timerErros.Interval = [TimeSpan]::FromMilliseconds(300)
+$timerErros.add_Tick({
+    $j = $script:errosJob
+    if (-not $j -or -not $j.Handle.IsCompleted) { return }
+    $timerErros.Stop()
+    try { Show-Erros ($j.Ps.EndInvoke($j.Handle) | Select-Object -Last 1) }
+    catch { $ui.txtErrosResumo.Text = "Erro ao ler os registros: $($_.Exception.Message)" }
+    finally { $j.Ps.Dispose(); $script:errosJob = $null }
+})
+$ui.btnErrosAtualizar.add_Click({ Start-Erros })
+foreach ($rb in $ui.rbErros7, $ui.rbErros30, $ui.rbErros90) { $rb.add_Checked({ if ($ui.icErrosResumo) { Start-Erros } }) }
+#endregion
+
 #region Comandos de otimização
 $PreludioCmd = @'
 $ErrorActionPreference = 'Continue'
@@ -5129,9 +5845,9 @@ $ui.btnAnalisar.add_Click({
 })
 
 # Menu lateral: cada item troca a aba (índice na ordem do menu)
-$Menu = @($ui.mnPainel, $ui.mnProc, $ui.mnAlertas, $ui.mnVida, $ui.mnOtim, $ui.mnSeg, $ui.mnApps, $ui.mnJogos)
+$Menu = @($ui.mnPainel, $ui.mnProc, $ui.mnAlertas, $ui.mnVida, $ui.mnOtim, $ui.mnSeg, $ui.mnApps, $ui.mnJogos, $ui.mnEspaco, $ui.mnErros)
 # Índice da aba (ordem no XAML) de cada item do menu; 7 = Aparência, que não tem item no menu
-$AbaDoMenu = @{ mnPainel = 0; mnProc = 1; mnAlertas = 2; mnVida = 3; mnOtim = 4; mnSeg = 5; mnApps = 6; mnJogos = 8 }
+$AbaDoMenu = @{ mnPainel = 0; mnProc = 1; mnAlertas = 2; mnVida = 3; mnOtim = 4; mnSeg = 5; mnApps = 6; mnJogos = 8; mnEspaco = 9; mnErros = 10 }
 function Select-Aba([int]$i) {
     foreach ($m in $Menu) { if ($AbaDoMenu[$m.Name] -eq $i) { $m.IsChecked = $true } }
 }
@@ -5144,7 +5860,9 @@ for ($i = 0; $i -lt $Menu.Count; $i++) {
         if ($idx -eq 1) { Update-GradeProcessos }
         if ($idx -eq 2) { $script:NaoLidos = 0; Update-Badge }
         if ($idx -eq 3 -and -not $ui.icVida.ItemsSource) { Start-Analise }
-        if ($idx -eq 6 -and -not $script:Apps.Count) { Start-Apps }
+        if ($idx -eq 6 -and -not $script:Apps.Count) { Start-Apps; Start-ProcurarUpdates }
+        if ($idx -eq 9 -and -not $ui.spEspacoDiscos.Children.Count) { Update-DiscosEspaco }
+        if ($idx -eq 10 -and -not $script:ErrosCarregados) { Start-Erros }
     })
 }
 $ui.btnVerTodos.add_Click({ Select-Aba 1 })
