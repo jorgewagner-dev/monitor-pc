@@ -1,0 +1,47 @@
+MONITOR PC
+==========
+
+Painel para acompanhar CPU, RAM, disco e rede do PC em tempo real, com alertas,
+vida útil das peças e comandos de otimização. Funciona no Windows 10 e 11, sem
+instalar nada.
+
+COMO ABRIR
+----------
+1. Extraia o .zip numa pasta (botão direito > "Extrair tudo...").
+   Não abra direto de dentro do .zip, senão não funciona.
+2. Dê dois cliques em "Iniciar Monitor PC.bat".
+3. Se aparecer "O Windows protegeu o computador", clique em
+   "Mais informações" > "Executar assim mesmo". Isso acontece com qualquer
+   arquivo baixado da internet que não é de uma empresa conhecida.
+4. (Opcional) No Monitor, clique no botão de paleta no topo > "Criar atalho na
+   Área de Trabalho". O atalho tem o ícone do app e abre sem a janela preta.
+   Não mova a pasta depois de criar o atalho.
+   Na primeira vez, o Monitor cria sozinho o arquivo "Monitor PC.exe" na pasta:
+   é ele que aparece com nome e ícone em Configurações > Inicialização.
+
+DICAS
+-----
+- Fechar a janela deixa o Monitor rodando na bandeja (perto do relógio).
+  Para sair de vez: botão direito no ícone > Sair, ou "Sair do Monitor" no menu.
+- Para ver o desgaste real do SSD/HD, clique em "Abrir como admin".
+- Na aba Alertas você define os limites (inclusive temperatura da placa de vídeo)
+  e pode marcar "Iniciar junto com o Windows".
+- A aba Segurança confere antivírus, firewall e se algum programa está disfarçado
+  de processo do Windows. Roda sozinha a cada 15 minutos.
+- A aba Aplicativos lista os programas e apps da Store, com botão para desinstalar,
+  e acha restos de antivírus que foram desinstalados pela metade.
+- O botão de paleta no topo abre a Aparência: escolha a cor (verde, vermelho, azul,
+  roxo, branco...) ou digite qualquer código de cor, e ligue/desligue o brilho neon.
+- A aba Jogos e FPS mede o FPS do jogo aberto, avisa quando ele cai e diz a causa
+  (disco, RAM, placa esquentando, programa em segundo plano...). Na primeira vez,
+  clique em "Baixar medidor de FPS" (PresentMon, ferramenta oficial da Intel, 1 MB).
+  Medir FPS exige abrir o Monitor como administrador. Lá embaixo há o guia
+  "Resolver problemas comuns" (disco/CPU/GPU em 100%, RAM cheia...) com comandos prontos.
+  Na mesma aba: Modo Jogo automático (fecha os programas que você marcar, liga o
+  alto desempenho e desfaz tudo ao fechar o jogo), ping/perda de pacotes em tempo
+  real (diz se o lag é do Wi-Fi ou da internet) e o resumo de cada sessão de jogo.
+- Placas NVIDIA mostram temperatura, consumo e VRAM. AMD/Intel mostram uso e VRAM.
+- Os comandos da aba Otimizar sempre pedem confirmação antes de rodar.
+  Antes dos avançados, crie um ponto de restauração (primeiro item do nível Avançado).
+
+Configurações ficam salvas em %APPDATA%\MonitorPC

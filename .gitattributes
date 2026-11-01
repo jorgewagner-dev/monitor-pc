@@ -1,0 +1,3 @@
+# Sem conversão de fim de linha: o arquivo baixado pela atualização automática precisa ser
+# idêntico byte a byte ao publicado, senão a impressão digital (SHA-256) não confere.
+* -text
