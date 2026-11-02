@@ -33,6 +33,10 @@ DICAS
   atualização (um por um ou "Atualizar todos", pelo winget do Windows).
 - A aba Espaço em disco mostra num mapa de blocos o que mais ocupa o disco, com os
   maiores arquivos; dá para abrir o local ou mandar para a Lixeira.
+- A aba Limpeza inteligente encontra o que só ocupa espaço (temporários, cache de
+  shaders, cache de navegadores/Discord/Spotify, relatórios de erro, downloads antigos
+  e arquivos duplicados) e mostra quanto dá para liberar. Você escolhe o que apagar;
+  downloads e duplicados vão para a Lixeira, e sempre fica uma cópia de cada arquivo.
 - A aba Travamentos lê os registros do Windows e explica telas azuis, desligamentos
   inesperados, erros de hardware/disco e programas que fecharam sozinhos.
 - O botão de paleta no topo abre a Aparência: escolha a cor (verde, vermelho, azul,

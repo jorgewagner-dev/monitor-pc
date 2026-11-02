@@ -837,6 +837,7 @@ $XamlTexto = @'
             <RadioButton x:Name="mnProc" Style="{StaticResource Menu}" Tag="&#xE9F5;" Content="Processos"/>
             <RadioButton x:Name="mnApps" Style="{StaticResource Menu}" Tag="&#xE71D;" Content="Aplicativos"/>
             <RadioButton x:Name="mnEspaco" Style="{StaticResource Menu}" Tag="&#xEDA2;" Content="Espaço em disco"/>
+            <RadioButton x:Name="mnLimpeza" Style="{StaticResource Menu}" Tag="&#xE74D;" Content="Limpeza inteligente"/>
             <RadioButton x:Name="mnAlertas" Style="{StaticResource Menu}" Tag="&#xEA8F;" Content="Alertas"/>
             <RadioButton x:Name="mnVida" Style="{StaticResource Menu}" Tag="&#xE95E;" Content="Vida útil"/>
             <RadioButton x:Name="mnErros" Style="{StaticResource Menu}" Tag="&#xE7BA;" Content="Travamentos"/>
@@ -2385,6 +2386,63 @@ $XamlTexto = @'
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+
+          <!-- ===================== LIMPEZA INTELIGENTE ===================== -->
+          <TabItem>
+            <ScrollViewer x:Name="svLimpeza" VerticalScrollBarVisibility="Auto" Padding="14,0,14,14">
+              <StackPanel>
+                <Border Style="{StaticResource Card}" Padding="22,16">
+                  <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                      <Button x:Name="btnLimpAnalisar" Style="{StaticResource BtnSecundario}" Content="Analisar" Margin="0,0,10,0"/>
+                      <Button x:Name="btnLimpLimpar" Content="Limpar selecionados" IsEnabled="False"/>
+                    </StackPanel>
+                    <StackPanel>
+                      <TextBlock x:Name="txtLimpTitulo" Text="Limpeza inteligente" FontSize="22" FontWeight="SemiBold"/>
+                      <TextBlock x:Name="txtLimpInfo" Style="{StaticResource Suave}" TextWrapping="Wrap"
+                                 Text="Encontra o que só ocupa espaço: caches, temporários, relatórios de erro, instaladores antigos e arquivos repetidos. Você escolhe o que apagar."/>
+                    </StackPanel>
+                  </DockPanel>
+                </Border>
+
+                <TextBlock Text="Caches e arquivos temporários" FontSize="17" FontWeight="SemiBold" Margin="10,10,10,2"/>
+                <TextBlock Style="{StaticResource Suave}" Margin="10,0,10,4" TextWrapping="Wrap"
+                           Text="São recriados sozinhos quando necessário. Arquivos em uso são pulados."/>
+                <StackPanel x:Name="spLimpCategorias"/>
+
+                <Border Style="{StaticResource Card}">
+                  <StackPanel>
+                    <DockPanel>
+                      <TextBlock x:Name="txtDlTotal" DockPanel.Dock="Right" FontSize="17" FontWeight="SemiBold" Foreground="#A6F23A" VerticalAlignment="Center"/>
+                      <StackPanel>
+                        <TextBlock Text="Downloads antigos (mais de 90 dias)" Style="{StaticResource TituloCard}"/>
+                        <TextBlock Style="{StaticResource Suave}" TextWrapping="Wrap"
+                                   Text="Instaladores e compactados que você já usou costumam ser esquecidos aqui. Vão para a Lixeira (dá para recuperar). Instaladores e .zip vêm marcados; o resto você decide."/>
+                      </StackPanel>
+                    </DockPanel>
+                    <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto" Margin="0,10,0,0">
+                      <StackPanel x:Name="spDownloads"/>
+                    </ScrollViewer>
+                  </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}">
+                  <StackPanel>
+                    <DockPanel>
+                      <Button x:Name="btnDupProcurar" DockPanel.Dock="Right" Style="{StaticResource BtnSecundario}" Content="Procurar duplicados" VerticalAlignment="Center"/>
+                      <TextBlock x:Name="txtDupTotal" DockPanel.Dock="Right" FontSize="17" FontWeight="SemiBold" Foreground="#A6F23A" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                      <StackPanel>
+                        <TextBlock Text="Arquivos duplicados" Style="{StaticResource TituloCard}"/>
+                        <TextBlock x:Name="txtDupInfo" Style="{StaticResource Suave}" TextWrapping="Wrap"
+                                   Text="Procura cópias idênticas (mesmo conteúdo, não só o mesmo nome) em Área de Trabalho, Documentos, Downloads, Imagens, Vídeos e Músicas. Arquivos que estão só na nuvem (OneDrive) são ignorados para não baixá-los."/>
+                      </StackPanel>
+                    </DockPanel>
+                    <StackPanel x:Name="spDuplicados" Margin="0,10,0,0"/>
                   </StackPanel>
                 </Border>
               </StackPanel>
@@ -4594,6 +4652,381 @@ $ui.btnErrosAtualizar.add_Click({ Start-Erros })
 foreach ($rb in $ui.rbErros7, $ui.rbErros30, $ui.rbErros90) { $rb.add_Checked({ if ($ui.icErrosResumo) { Start-Erros } }) }
 #endregion
 
+#region Limpeza inteligente
+Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.IO;
+namespace MonitorPC {
+    public static class Limpador {
+        // Arquivos só na nuvem (OneDrive "sob demanda"): ler o conteúdo faria o Windows baixá-los
+        const int NaNuvem = 0x400000 | 0x40000 | 0x1000;
+        public static long[] Medir(string pasta, int dias) { long b = 0, n = 0; Rec(new DirectoryInfo(pasta), DateTime.Now.AddDays(-dias), false, ref b, ref n); return new long[] { b, n }; }
+        public static long[] Limpar(string pasta, int dias) { long b = 0, n = 0; Rec(new DirectoryInfo(pasta), DateTime.Now.AddDays(-dias), true, ref b, ref n); return new long[] { b, n }; }
+        static void Rec(DirectoryInfo d, DateTime limite, bool apagar, ref long b, ref long n) {
+            try { if (!d.Exists) return; } catch { return; }
+            try {
+                foreach (var f in d.EnumerateFiles()) {
+                    try {
+                        if (f.LastWriteTime > limite) continue;
+                        long t = f.Length;
+                        if (apagar) { if ((f.Attributes & FileAttributes.ReadOnly) != 0) f.Attributes = FileAttributes.Normal; f.Delete(); }
+                        b += t; n++;
+                    } catch { }   // em uso ou sem permissão: fica
+                }
+            } catch { }
+            try {
+                foreach (var s in d.EnumerateDirectories()) {
+                    try { if ((s.Attributes & FileAttributes.ReparsePoint) != 0) continue; } catch { continue; }
+                    Rec(s, limite, apagar, ref b, ref n);
+                    if (apagar) { try { using (var e = s.EnumerateFileSystemInfos().GetEnumerator()) { if (!e.MoveNext()) s.Delete(); } } catch { } }
+                }
+            } catch { }
+        }
+        public static List<FileInfo> Listar(string pasta, long minimo) {
+            var r = new List<FileInfo>();
+            ListarRec(new DirectoryInfo(pasta), minimo, r);
+            return r;
+        }
+        static void ListarRec(DirectoryInfo d, long minimo, List<FileInfo> r) {
+            try { if (!d.Exists) return; } catch { return; }
+            try { foreach (var f in d.EnumerateFiles()) { try { if (((int)f.Attributes & NaNuvem) != 0) continue; if (f.Length >= minimo) r.Add(f); } catch { } } } catch { }
+            try { foreach (var s in d.EnumerateDirectories()) { try { if ((s.Attributes & FileAttributes.ReparsePoint) != 0) continue; } catch { continue; } ListarRec(s, minimo, r); } } catch { }
+        }
+        // Impressão digital do começo do arquivo (1 MB): separa rápido os que com certeza são diferentes
+        public static string HashInicio(string caminho) {
+            using (var fs = new FileStream(caminho, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var sha = System.Security.Cryptography.SHA256.Create()) {
+                var buf = new byte[1048576]; int lido = fs.Read(buf, 0, buf.Length);
+                return BitConverter.ToString(sha.ComputeHash(buf, 0, lido));
+            }
+        }
+        public static string HashTudo(string caminho) {
+            using (var fs = new FileStream(caminho, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var sha = System.Security.Cryptography.SHA256.Create()) { return BitConverter.ToString(sha.ComputeHash(fs)); }
+        }
+    }
+}
+'@
+
+$script:LimpezaAnalisada = $false
+$script:limpJob = $null
+$script:ChecksCat = @{}; $script:TamCat = @{}
+$script:ChecksDl = New-Object System.Collections.Generic.List[object]
+$script:ChecksDup = New-Object System.Collections.Generic.List[object]
+
+function Get-CategoriasLimpeza {
+    $L = $env:LOCALAPPDATA; $R = $env:APPDATA
+    $navegadores = @(Get-ChildItem "$L\Google\Chrome\User Data\*\Cache", "$L\Google\Chrome\User Data\*\Code Cache", "$L\Google\Chrome\User Data\*\GPUCache",
+        "$L\Microsoft\Edge\User Data\*\Cache", "$L\Microsoft\Edge\User Data\*\Code Cache", "$L\Microsoft\Edge\User Data\*\GPUCache",
+        "$L\BraveSoftware\Brave-Browser\User Data\*\Cache", "$L\BraveSoftware\Brave-Browser\User Data\*\Code Cache",
+        "$L\Opera Software\*\Cache", "$R\Opera Software\*\Code Cache", "$R\Opera Software\*\GPUCache", "$L\Mozilla\Firefox\Profiles\*\cache2" -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+    @(
+        @{ Id = 'temp'; Nome = 'Arquivos temporários'; Glifo = 0xE74D; Dias = 1; Admin = $false; Padrao = $true; Pastas = @($env:TEMP)
+           Desc = 'Restos de instalações e programas. Os do último dia ficam (podem estar em uso).' }
+        @{ Id = 'shaders'; Nome = 'Cache de shaders dos jogos'; Glifo = 0xE7FC; Dias = 0; Admin = $false; Padrao = $true
+           Pastas = @("$L\NVIDIA\DXCache", "$L\NVIDIA\GLCache", "$L\D3DSCache", "$L\AMD\DxCache", "$L\AMD\GLCache")
+           Desc = 'Gráficos pré-processados pelo driver de vídeo. Cresce sem limite; o primeiro carregamento de cada jogo depois de limpar fica um pouco mais lento.' }
+        @{ Id = 'navegador'; Nome = 'Cache dos navegadores'; Glifo = 0xE774; Dias = 0; Admin = $false; Padrao = $true; Pastas = $navegadores
+           Desc = 'Imagens e páginas guardadas pelo Chrome, Edge, Brave, Opera e Firefox. NÃO apaga senhas, histórico, favoritos nem logins.' }
+        @{ Id = 'apps'; Nome = 'Cache do Discord, Spotify e Teams'; Glifo = 0xE71D; Dias = 0; Admin = $false; Padrao = $true
+           Pastas = @("$R\discord\Cache", "$R\discord\Code Cache", "$R\discord\GPUCache", "$L\Spotify\Data", "$L\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams\EBWebView\Default\Cache")
+           Desc = 'Imagens, músicas e vídeos guardados temporariamente. Nada da sua conta é apagado.' }
+        @{ Id = 'relatorios'; Nome = 'Relatórios de erro de programas'; Glifo = 0xE7BA; Dias = 0; Admin = $false; Padrao = $true
+           Pastas = @("$L\CrashDumps", "$L\Microsoft\Windows\WER")
+           Desc = 'Gerados quando um programa trava. Só servem para suporte técnico.' }
+        @{ Id = 'lixeira'; Nome = 'Lixeira'; Glifo = 0xE74D; Admin = $false; Padrao = $false; Tipo = 'lixeira'
+           Desc = 'O que você já apagou. Esvaziar NÃO dá para desfazer — por isso vem desmarcado.' }
+        @{ Id = 'wintemp'; Nome = 'Temporários do Windows'; Glifo = 0xE770; Dias = 1; Admin = $true; Padrao = $true; Pastas = @("$env:windir\Temp")
+           Desc = 'Restos de atualizações e instalações do sistema.' }
+        @{ Id = 'wu'; Nome = 'Cache do Windows Update'; Glifo = 0xE895; Dias = 0; Admin = $true; Padrao = $true; Pastas = @("$env:windir\SoftwareDistribution\Download")
+           Desc = 'Atualizações já baixadas e instaladas.' }
+        @{ Id = 'entrega'; Nome = 'Otimização de entrega'; Glifo = 0xE895; Dias = 0; Admin = $true; Padrao = $true
+           Pastas = @("$env:windir\ServiceProfiles\NetworkService\AppData\Local\Microsoft\Windows\DeliveryOptimization\Cache")
+           Desc = 'Cópias de atualizações que o Windows guarda para compartilhar com outros PCs.' }
+        @{ Id = 'relsis'; Nome = 'Relatórios de erro do Windows'; Glifo = 0xE7BA; Dias = 0; Admin = $true; Padrao = $true
+           Pastas = @("$env:ProgramData\Microsoft\Windows\WER\ReportArchive", "$env:ProgramData\Microsoft\Windows\WER\ReportQueue", "$env:windir\Minidump")
+           Arquivos = @("$env:windir\MEMORY.DMP")
+           Desc = 'Relatórios e despejos de memória de telas azuis. Grandes e só úteis para técnicos.' }
+    )
+}
+
+$ScriptAnaliseLimpeza = {
+    param($cats, $ehAdmin)
+    $res = @{}
+    foreach ($c in $cats) {
+        $b = 0; $n = 0; $ok = $true
+        if ($c.Tipo -eq 'lixeira') {
+            try { foreach ($i in @((New-Object -ComObject Shell.Application).Namespace(10).Items())) { $b += [long]$i.Size; $n++ } } catch {}
+        } elseif ($c.Admin -and -not $ehAdmin) {
+            $ok = $false
+        } else {
+            foreach ($p in @($c.Pastas)) { $m = [MonitorPC.Limpador]::Medir($p, [int]$c.Dias); $b += $m[0]; $n += $m[1] }
+            foreach ($a in @($c.Arquivos)) { if ($a -and (Test-Path -LiteralPath $a)) { try { $b += (Get-Item -LiteralPath $a -Force).Length; $n++ } catch {} } }
+        }
+        $res[$c.Id] = @{ Bytes = $b; Arquivos = $n; Ok = $ok }
+    }
+    # Downloads com mais de 90 dias
+    $limite = (Get-Date).AddDays(-90)
+    $dl = @([MonitorPC.Limpador]::Listar("$env:USERPROFILE\Downloads", 1) | Where-Object { $_.LastWriteTime -lt $limite } |
+        Sort-Object Length -Descending | Select-Object -First 150 | ForEach-Object {
+            [pscustomobject]@{ Caminho = $_.FullName; Nome = $_.Name; Tam = $_.Length; Data = $_.LastWriteTime; Ext = $_.Extension.ToLower() } })
+    $abertos = @(Get-Process chrome, msedge, opera, brave, firefox, discord, spotify, ms-teams -ErrorAction SilentlyContinue | ForEach-Object { $_.ProcessName } | Sort-Object -Unique)
+    [pscustomobject]@{ Cats = $res; Downloads = $dl; Abertos = $abertos }
+}
+
+$ScriptLimpar = {
+    param($cats, $arquivosLixeira)
+    $liberado = @{}
+    foreach ($c in $cats) {
+        $b = 0
+        if ($c.Tipo -eq 'lixeira') {
+            try { foreach ($i in @((New-Object -ComObject Shell.Application).Namespace(10).Items())) { $b += [long]$i.Size } } catch {}
+            Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+        } else {
+            if ($c.Id -eq 'wu') { Stop-Service wuauserv, bits -Force -ErrorAction SilentlyContinue }
+            foreach ($p in @($c.Pastas)) { $b += ([MonitorPC.Limpador]::Limpar($p, [int]$c.Dias))[0] }
+            foreach ($a in @($c.Arquivos)) { if ($a -and (Test-Path -LiteralPath $a)) { try { $t = (Get-Item -LiteralPath $a -Force).Length; Remove-Item -LiteralPath $a -Force -ErrorAction Stop; $b += $t } catch {} } }
+            if ($c.Id -eq 'wu') { Start-Service wuauserv, bits -ErrorAction SilentlyContinue }
+        }
+        $liberado[$c.Id] = $b
+    }
+    # Downloads e duplicados vão para a Lixeira (dá para recuperar)
+    $paraLixeira = 0; $falhas = 0
+    foreach ($a in $arquivosLixeira) {
+        try {
+            $t = (Get-Item -LiteralPath $a -Force).Length
+            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($a, 'OnlyErrorDialogs', 'SendToRecycleBin')
+            $paraLixeira += $t
+        } catch { $falhas++ }
+    }
+    [pscustomobject]@{ Liberado = $liberado; ParaLixeira = $paraLixeira; Falhas = $falhas }
+}
+
+function Update-TotalLimpeza {
+    $total = 0
+    foreach ($id in $script:ChecksCat.Keys) { if ($script:ChecksCat[$id].IsChecked) { $total += $script:TamCat[$id] } }
+    foreach ($x in $script:ChecksDl) { if ($x.Check.IsChecked) { $total += $x.Tam } }
+    foreach ($x in $script:ChecksDup) { if ($x.Check.IsChecked) { $total += $x.Tam } }
+    $script:TotalLimpeza = $total
+    $ui.btnLimpLimpar.Content = if ($total) { "Limpar selecionados ($(Format-Bytes $total))" } else { 'Limpar selecionados' }
+    $ui.btnLimpLimpar.IsEnabled = $total -gt 0 -and -not $script:limpJob
+    $ui.txtDlTotal.Text = Format-Bytes ((@($script:ChecksDl | Where-Object { $_.Check.IsChecked }) | ForEach-Object { $_.Tam } | Measure-Object -Sum).Sum)
+    if ($script:ChecksDup.Count) { $ui.txtDupTotal.Text = Format-Bytes ((@($script:ChecksDup | Where-Object { $_.Check.IsChecked }) | ForEach-Object { $_.Tam } | Measure-Object -Sum).Sum) }
+}
+
+function New-LinhaArquivo($texto, $sub, [bool]$marcado, $tam, $caminho, $lista) {
+    $chk = New-Object Windows.Controls.CheckBox
+    $chk.IsChecked = $marcado; $chk.Margin = '0,3'
+    $sp = New-Object Windows.Controls.StackPanel
+    $t1 = New-Object Windows.Controls.TextBlock; $t1.Text = $texto; $t1.TextTrimming = 'CharacterEllipsis'; $t1.MaxWidth = 900
+    $t2 = New-Object Windows.Controls.TextBlock; $t2.Text = $sub; $t2.FontSize = 11; $t2.Foreground = Get-Pincel $Cor.Suave; $t2.TextTrimming = 'CharacterEllipsis'; $t2.MaxWidth = 900
+    [void]$sp.Children.Add($t1); [void]$sp.Children.Add($t2)
+    $chk.Content = $sp; $chk.ToolTip = $caminho
+    $chk.add_Click({ Update-TotalLimpeza })
+    $lista.Add(@{ Check = $chk; Tam = $tam; Caminho = $caminho })
+    $chk
+}
+
+function Show-AnaliseLimpeza($r) {
+    $ui.spLimpCategorias.Children.Clear(); $script:ChecksCat = @{}; $script:TamCat = @{}
+    $total = 0
+    foreach ($c in $script:CatsLimpeza) {
+        $m = $r.Cats[$c.Id]
+        $card = New-Object Windows.Controls.Border
+        $card.Style = $window.FindResource('Card'); $card.Padding = '18,12'
+        $dp = New-Object Windows.Controls.DockPanel
+        $tam = New-Object Windows.Controls.TextBlock
+        $tam.FontSize = 17; $tam.FontWeight = 'SemiBold'; $tam.VerticalAlignment = 'Center'; $tam.Margin = '12,0,0,0'
+        [Windows.Controls.DockPanel]::SetDock($tam, 'Right')
+        $chk = New-Object Windows.Controls.CheckBox
+        $chk.VerticalAlignment = 'Top'; $chk.Margin = '0,2,12,0'
+        [Windows.Controls.DockPanel]::SetDock($chk, 'Left')
+        $info = New-Object Windows.Controls.StackPanel
+        $t1 = New-Object Windows.Controls.TextBlock; $t1.Text = $c.Nome; $t1.FontWeight = 'SemiBold'; $t1.FontSize = 14
+        $t2 = New-Object Windows.Controls.TextBlock; $t2.TextWrapping = 'Wrap'; $t2.FontSize = 12; $t2.Foreground = Get-Pincel $Cor.Suave
+        $t2.Text = $c.Desc
+        if (-not $m.Ok) {
+            $tam.Text = 'precisa admin'; $tam.FontSize = 12; $tam.Foreground = Get-Pincel $Cor.Suave
+            $chk.IsEnabled = $false; $chk.IsChecked = $false
+            $t2.Text += ' Abra o Monitor como administrador para medir e limpar.'
+        } else {
+            $tam.Text = Format-Bytes $m.Bytes
+            $tam.Foreground = Get-Pincel $(if ($m.Bytes -ge 1GB) { $Cor.Lima } else { '#F2F2F5' })
+            $chk.IsChecked = $c.Padrao -and $m.Bytes -gt 0
+            $chk.IsEnabled = $m.Bytes -gt 0
+            if ($m.Arquivos) { $t2.Text += "  ·  $('{0:N0}' -f $m.Arquivos) arquivo(s)" }
+            if ($c.Id -in 'navegador', 'apps' -and @($r.Abertos).Count) { $t2.Text += "  ·  Aberto agora: $(@($r.Abertos) -join ', ') — feche para limpar tudo." }
+            $total += $m.Bytes
+        }
+        $chk.add_Click({ Update-TotalLimpeza })
+        [void]$info.Children.Add($t1); [void]$info.Children.Add($t2)
+        [void]$dp.Children.Add($tam); [void]$dp.Children.Add($chk); [void]$dp.Children.Add($info)
+        $card.Child = $dp
+        [void]$ui.spLimpCategorias.Children.Add($card)
+        $script:ChecksCat[$c.Id] = $chk; $script:TamCat[$c.Id] = [long]$m.Bytes
+    }
+    # Downloads antigos
+    $ui.spDownloads.Children.Clear(); $script:ChecksDl.Clear()
+    $marcarExt = '.exe', '.msi', '.msix', '.zip', '.rar', '.7z'
+    foreach ($d in @($r.Downloads)) {
+        $total += $d.Tam
+        $sub = "$(Format-Bytes $d.Tam) · baixado em $($d.Data.ToString('dd/MM/yyyy')) · $([IO.Path]::GetDirectoryName($d.Caminho))"
+        [void]$ui.spDownloads.Children.Add((New-LinhaArquivo $d.Nome $sub ($d.Ext -in $marcarExt) $d.Tam $d.Caminho $script:ChecksDl))
+    }
+    if (-not @($r.Downloads).Count) {
+        $v = New-Object Windows.Controls.TextBlock; $v.Text = 'Nenhum download com mais de 90 dias.'; $v.Foreground = Get-Pincel $Cor.Suave
+        [void]$ui.spDownloads.Children.Add($v)
+    }
+    $ui.txtLimpTitulo.Text = "Limpeza inteligente — $(Format-Bytes $total) que podem ser liberados"
+    $ui.txtLimpInfo.Text = $(if ($script:ResultadoLimpeza) { "$($script:ResultadoLimpeza) " } else { '' }) +
+        "Analisado às $((Get-Date).ToString('HH:mm')). Os itens marcados são seguros de apagar; desmarque o que quiser manter. Caches e temporários são apagados de vez; downloads e duplicados vão para a Lixeira."
+    $script:ResultadoLimpeza = $null
+    $script:LimpezaAnalisada = $true
+    Update-TotalLimpeza
+}
+
+function Start-AnaliseLimpeza {
+    if ($script:limpJob) { return }
+    $script:CatsLimpeza = Get-CategoriasLimpeza
+    $ui.btnLimpAnalisar.IsEnabled = $false; $ui.btnLimpLimpar.IsEnabled = $false
+    $ui.txtLimpInfo.Text = 'Analisando caches, temporários e downloads...'
+    $ps = [powershell]::Create()
+    [void]$ps.AddScript($ScriptAnaliseLimpeza).AddArgument($script:CatsLimpeza).AddArgument($EhAdmin)
+    $script:limpJob = @{ Ps = $ps; Handle = $ps.BeginInvoke(); Tipo = 'analise' }
+    $timerLimp.Start()
+}
+
+$timerLimp = New-Object Windows.Threading.DispatcherTimer
+$timerLimp.Interval = [TimeSpan]::FromMilliseconds(400)
+$timerLimp.add_Tick({
+    $j = $script:limpJob
+    if (-not $j -or -not $j.Handle.IsCompleted) { return }
+    $timerLimp.Stop()
+    try {
+        $r = $j.Ps.EndInvoke($j.Handle) | Select-Object -Last 1
+        switch ($j.Tipo) {
+            'analise' { Show-AnaliseLimpeza $r }
+            'limpar' {
+                $soma = ($r.Liberado.Values | Measure-Object -Sum).Sum
+                $msg = "✓ $(Format-Bytes ($soma + $r.ParaLixeira)) liberados" +
+                       $(if ($r.ParaLixeira) { " ($(Format-Bytes $r.ParaLixeira) foram para a Lixeira)" } else { '' }) +
+                       $(if ($r.Falhas) { " · $($r.Falhas) arquivo(s) em uso ficaram" } else { '' }) + '.'
+                $script:ResultadoLimpeza = $msg
+                try { Add-Content -Path $ManutLogPath -Value ('{0:dd/MM/yyyy HH:mm}  Limpeza inteligente: {1}' -f (Get-Date), $msg) -Encoding UTF8 } catch {}
+                $script:limpJob = $null; $j.Ps.Dispose()
+                $script:ChecksDup.Clear(); $ui.spDuplicados.Children.Clear(); $ui.txtDupTotal.Text = ''
+                Start-AnaliseLimpeza
+                $ui.txtLimpInfo.Text = "$msg Analisando de novo..."
+                return
+            }
+            'duplicados' { Show-Duplicados $r }
+        }
+    } catch {
+        $ui.txtLimpInfo.Text = "Erro: $($_.Exception.Message)"
+    } finally {
+        if ($script:limpJob -eq $j) { $j.Ps.Dispose(); $script:limpJob = $null }
+        $ui.btnLimpAnalisar.IsEnabled = $true; $ui.btnDupProcurar.IsEnabled = $true
+        Update-TotalLimpeza
+    }
+})
+
+$ui.btnLimpAnalisar.add_Click({ Start-AnaliseLimpeza })
+$ui.btnLimpLimpar.add_Click({
+    if ($script:limpJob) { return }
+    # Duplicados: nunca apagar todas as cópias de um arquivo — se todas estiverem marcadas, a mais antiga fica
+    $corrigidos = 0
+    foreach ($grp in ($script:ChecksDup | Group-Object { $_.GrupoId })) {
+        if (-not @($grp.Group | Where-Object { -not $_.Check.IsChecked }).Count) { $grp.Group[0].Check.IsChecked = $false; $corrigidos++ }
+    }
+    if ($corrigidos) {
+        Update-TotalLimpeza
+        [Windows.MessageBox]::Show("Em $corrigidos arquivo(s) duplicado(s) todas as cópias estavam marcadas. A mais antiga foi desmarcada para não perder o arquivo.", $AppNome) | Out-Null
+    }
+    $cats = @($script:CatsLimpeza | Where-Object { $script:ChecksCat[$_.Id].IsChecked })
+    # .ToArray(): @() direto numa List[object] dá erro no PowerShell 5.1
+    $arqs = @(($script:ChecksDl.ToArray() + $script:ChecksDup.ToArray()) | Where-Object { $_.Check.IsChecked } | ForEach-Object { $_.Caminho })
+    if (-not $cats.Count -and -not $arqs.Count) { return }
+    $linhas = @($cats | ForEach-Object { "• $($_.Nome): $(Format-Bytes $script:TamCat[$_.Id])" })
+    if ($arqs.Count) { $linhas += "• $($arqs.Count) arquivo(s) de downloads/duplicados → Lixeira" }
+    $aviso = "Liberar cerca de $(Format-Bytes $script:TotalLimpeza)?`n`n$($linhas -join "`n")`n`nCaches e temporários são apagados de vez (os programas recriam o que precisarem)." +
+             $(if ($cats | Where-Object { $_.Id -eq 'lixeira' }) { "`nA LIXEIRA SERÁ ESVAZIADA — isso não dá para desfazer." } else { '' })
+    if ([Windows.MessageBox]::Show($aviso, $AppNome, 'YesNo', 'Question') -ne 'Yes') { return }
+    $ui.btnLimpLimpar.IsEnabled = $false; $ui.btnLimpAnalisar.IsEnabled = $false; $ui.btnDupProcurar.IsEnabled = $false
+    $ui.txtLimpInfo.Text = 'Limpando... arquivos em uso são pulados.'
+    $ps = [powershell]::Create()
+    [void]$ps.AddScript($ScriptLimpar).AddArgument($cats).AddArgument($arqs)
+    $script:limpJob = @{ Ps = $ps; Handle = $ps.BeginInvoke(); Tipo = 'limpar' }
+    $timerLimp.Start()
+})
+
+# ---- Duplicados ----
+$ScriptDuplicados = {
+    param($pastas)
+    $todos = New-Object System.Collections.Generic.List[object]
+    $vistos = New-Object System.Collections.Generic.HashSet[string]([StringComparer]::OrdinalIgnoreCase)
+    foreach ($p in $pastas) { foreach ($f in [MonitorPC.Limpador]::Listar($p, 1MB)) { if ($vistos.Add($f.FullName)) { $todos.Add($f) } } }
+    $grupos = New-Object System.Collections.Generic.List[object]
+    $lidos = @{ Bytes = 0L }   # tabela: o bloco do Group-Object roda em outro escopo e precisa alterar o total
+    foreach ($g in ($todos | Group-Object Length | Where-Object { $_.Count -gt 1 } | Sort-Object { [long]$_.Name } -Descending)) {
+        if ($lidos.Bytes -gt 40GB) { break }   # limite de leitura para não demorar demais
+        # 1º filtro: começo do arquivo; 2º: arquivo inteiro
+        $porInicio = $g.Group | Group-Object { try { [MonitorPC.Limpador]::HashInicio($_.FullName) } catch { [guid]::NewGuid() } } | Where-Object { $_.Count -gt 1 }
+        foreach ($gi in $porInicio) {
+            $porTudo = $gi.Group | Group-Object { try { $lidos.Bytes += $_.Length; [MonitorPC.Limpador]::HashTudo($_.FullName) } catch { [guid]::NewGuid() } } | Where-Object { $_.Count -gt 1 }
+            foreach ($gt in $porTudo) {
+                $copias = @($gt.Group | Sort-Object LastWriteTime)
+                $grupos.Add([pscustomobject]@{
+                    Tam = [long]$copias[0].Length; Nome = $copias[0].Name
+                    Arquivos = @($copias | ForEach-Object { [pscustomobject]@{ Caminho = $_.FullName; Data = $_.LastWriteTime } })
+                })
+            }
+        }
+    }
+    [pscustomobject]@{ Grupos = @($grupos | Sort-Object { $_.Tam * ($_.Arquivos.Count - 1) } -Descending | Select-Object -First 60); Analisados = $todos.Count }
+}
+
+function Show-Duplicados($r) {
+    $ui.spDuplicados.Children.Clear(); $script:ChecksDup.Clear()
+    $grupos = @($r.Grupos)
+    if (-not $grupos.Count) {
+        $ui.txtDupInfo.Text = "Nenhuma cópia repetida entre $('{0:N0}' -f $r.Analisados) arquivos de 1 MB ou mais."
+        Update-TotalLimpeza
+        return
+    }
+    $desperdicio = ($grupos | ForEach-Object { $_.Tam * ($_.Arquivos.Count - 1) } | Measure-Object -Sum).Sum
+    $ui.txtDupInfo.Text = "$($grupos.Count) arquivo(s) com cópias repetidas ($(Format-Bytes $desperdicio) desperdiçados). A cópia mais antiga de cada um fica desmarcada (é a que permanece)."
+    $gid = 0
+    foreach ($g in $grupos) {
+        $gid++
+        $cab = New-Object Windows.Controls.TextBlock
+        $cab.Text = "$($g.Nome) — $($g.Arquivos.Count) cópias de $(Format-Bytes $g.Tam)"; $cab.FontWeight = 'SemiBold'; $cab.Margin = '0,10,0,2'
+        [void]$ui.spDuplicados.Children.Add($cab)
+        for ($i = 0; $i -lt $g.Arquivos.Count; $i++) {
+            $a = $g.Arquivos[$i]
+            $sub = "$(if ($i -eq 0) { 'mais antigo (fica) · ' })modificado em $($a.Data.ToString('dd/MM/yyyy HH:mm'))"
+            $chk = New-LinhaArquivo $a.Caminho $sub ($i -gt 0) $g.Tam $a.Caminho $script:ChecksDup
+            [void]$ui.spDuplicados.Children.Add($chk)
+            $script:ChecksDup[$script:ChecksDup.Count - 1].GrupoId = $gid
+        }
+    }
+    Update-TotalLimpeza
+}
+
+$ui.btnDupProcurar.add_Click({
+    if ($script:limpJob) { return }
+    $pastas = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('MyDocuments'), "$env:USERPROFILE\Downloads",
+        [Environment]::GetFolderPath('MyPictures'), [Environment]::GetFolderPath('MyVideos'), [Environment]::GetFolderPath('MyMusic')) |
+        Where-Object { $_ -and (Test-Path $_) } | Sort-Object -Unique
+    $ui.btnDupProcurar.IsEnabled = $false; $ui.btnLimpLimpar.IsEnabled = $false
+    $ui.txtDupInfo.Text = 'Comparando arquivos... pode levar alguns minutos se houver muitos vídeos.'
+    $ps = [powershell]::Create()
+    [void]$ps.AddScript($ScriptDuplicados).AddArgument($pastas)
+    $script:limpJob = @{ Ps = $ps; Handle = $ps.BeginInvoke(); Tipo = 'duplicados' }
+    $timerLimp.Start()
+})
+#endregion
+
 #region Comandos de otimização
 $PreludioCmd = @'
 $ErrorActionPreference = 'Continue'
@@ -5845,9 +6278,9 @@ $ui.btnAnalisar.add_Click({
 })
 
 # Menu lateral: cada item troca a aba (índice na ordem do menu)
-$Menu = @($ui.mnPainel, $ui.mnProc, $ui.mnAlertas, $ui.mnVida, $ui.mnOtim, $ui.mnSeg, $ui.mnApps, $ui.mnJogos, $ui.mnEspaco, $ui.mnErros)
+$Menu = @($ui.mnPainel, $ui.mnProc, $ui.mnAlertas, $ui.mnVida, $ui.mnOtim, $ui.mnSeg, $ui.mnApps, $ui.mnJogos, $ui.mnEspaco, $ui.mnErros, $ui.mnLimpeza)
 # Índice da aba (ordem no XAML) de cada item do menu; 7 = Aparência, que não tem item no menu
-$AbaDoMenu = @{ mnPainel = 0; mnProc = 1; mnAlertas = 2; mnVida = 3; mnOtim = 4; mnSeg = 5; mnApps = 6; mnJogos = 8; mnEspaco = 9; mnErros = 10 }
+$AbaDoMenu = @{ mnPainel = 0; mnProc = 1; mnAlertas = 2; mnVida = 3; mnOtim = 4; mnSeg = 5; mnApps = 6; mnJogos = 8; mnEspaco = 9; mnErros = 10; mnLimpeza = 11 }
 function Select-Aba([int]$i) {
     foreach ($m in $Menu) { if ($AbaDoMenu[$m.Name] -eq $i) { $m.IsChecked = $true } }
 }
@@ -5863,6 +6296,7 @@ for ($i = 0; $i -lt $Menu.Count; $i++) {
         if ($idx -eq 6 -and -not $script:Apps.Count) { Start-Apps; Start-ProcurarUpdates }
         if ($idx -eq 9 -and -not $ui.spEspacoDiscos.Children.Count) { Update-DiscosEspaco }
         if ($idx -eq 10 -and -not $script:ErrosCarregados) { Start-Erros }
+        if ($idx -eq 11 -and -not $script:LimpezaAnalisada) { Start-AnaliseLimpeza }
     })
 }
 $ui.btnVerTodos.add_Click({ Select-Aba 1 })
