@@ -1,7 +1,7 @@
 {
-    "versao":  "2.6.0",
+    "versao":  "2.7.0",
     "data":  "2026-11-01",
-    "notas":  "Atualizar programas com um clique, mapa do que ocupa o disco e histórico de travamentos e erros.",
-    "arquivo":  "https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/v2.6.0/MonitorPC.ps1",
-    "sha256":  "4189F0719391C325E507D0090CE32C87CD4D85DF75C7F7BB45E215A73C19361B"
+    "notas":  "Nova aba Limpeza inteligente: encontra caches, temporários, downloads antigos e arquivos duplicados e mostra quanto espaço dá para liberar.",
+    "arquivo":  "https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/v2.7.0/MonitorPC.ps1",
+    "sha256":  "44F842F05DA3054FBD53420AD5FA770F5F04E0B1397354016644379585BF26B2"
 }

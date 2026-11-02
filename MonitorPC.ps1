@@ -32,7 +32,7 @@ $EventoMostrar = New-Object System.Threading.EventWaitHandle($false, 'AutoReset'
 #endregion
 
 $AppNome   = 'Monitor PC'
-$VersaoApp = '2.6.0'
+$VersaoApp = '2.7.0'
 # Endereço do arquivo versao.json publicado (vazio = atualização automática desligada)
 $UrlAtualizacaoPadrao = 'https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/main/versao.json'
 $Intervalo = 1      # segundos entre leituras
