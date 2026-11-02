@@ -4,6 +4,14 @@ Painel para Windows 10/11 que acompanha CPU, RAM, disco, placa de vídeo e rede 
 FPS dos jogos, diagnóstico de quedas, Modo Jogo automático, verificação de segurança, vida útil das peças
 e comandos de otimização. Feito em PowerShell + WPF, sem instalar nada.
 
+Dois perfis, escolhidos na primeira vez que abre (e trocados depois na Aparência):
+
+- **Gamer** — FPS ao vivo, quedas e causas, Modo Jogo, ping e sessões de jogo.
+- **Profissional** — Modo Reunião (protege chamadas detectando o microfone em uso), inventário e conformidade
+  (licença, Windows Update, BitLocker, Secure Boot, TPM, backup) e relatório do PC em HTML/PDF para o TI.
+
+Manual completo: [Manual do Monitor PC.docx](Manual%20do%20Monitor%20PC.docx).
+
 ## Como usar
 
 1. Baixe o `MonitorPC.zip` ou os arquivos `MonitorPC.ps1` e `Iniciar Monitor PC.bat` para uma pasta.

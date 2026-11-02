@@ -32,7 +32,7 @@ $EventoMostrar = New-Object System.Threading.EventWaitHandle($false, 'AutoReset'
 #endregion
 
 $AppNome   = 'Monitor PC'
-$VersaoApp = '2.7.0'
+$VersaoApp = '2.8.0'
 # Endereço do arquivo versao.json publicado (vazio = atualização automática desligada)
 $UrlAtualizacaoPadrao = 'https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/main/versao.json'
 $Intervalo = 1      # segundos entre leituras
@@ -89,6 +89,13 @@ function Get-ConfigPadrao {
         Sustentar          = 10
         IntervaloAlertaMin = 5
         AnoCompra          = ''
+        Perfil             = ''      # '' = ainda não escolheu; 'Gamer' ou 'Profissional'
+        Reuniao            = $true
+        ReuniaoPausarWU    = $true
+        ReuniaoSilenciar   = $true
+        ReuniaoAvisar      = $true
+        ReuniaoReabrir     = $true
+        ReuniaoFechar      = @()
     }
 }
 
@@ -108,6 +115,39 @@ function Read-Config {
 function Save-Config { $script:Config | ConvertTo-Json | Set-Content -Path $ConfigPath -Encoding UTF8 }
 
 $Config = Read-Config
+
+# Chamada em andamento = algum programa usando o microfone agora. O Windows anota em
+# CapabilityAccessManager quando cada app começa e para de usar (LastUsedTimeStop = 0: ainda usando).
+# Funciona para Teams, Zoom, Meet/Teams no navegador, Discord... sem precisar de administrador.
+function Get-ChamadaAtiva {
+    # Registro lido direto pelo .NET: os cmdlets levam ~40 ms aqui, e isto roda a cada 2 s
+    $base = 'Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone'
+    $emUso = $null
+    foreach ($sub in @($base, "$base\NonPackaged")) {
+        $r = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($sub)
+        if (-not $r) { continue }
+        foreach ($n in $r.GetSubKeyNames()) {
+            if ($n -eq 'NonPackaged') { continue }
+            $k = $r.OpenSubKey($n)
+            if (-not $k) { continue }
+            $ini = $k.GetValue('LastUsedTimeStart'); $fim = $k.GetValue('LastUsedTimeStop'); $k.Close()
+            if (-not $ini -or $fim -ne 0) { continue }
+            # "C:#Program Files#Zoom#bin#Zoom.exe" (programa) ou "MSTeams_8wekyb3d8bbwe" (app da Store)
+            $nome = if ($n -match '#') { [IO.Path]::GetFileNameWithoutExtension(($n -split '#')[-1]) } else { ($n -split '_')[0] -replace '^[^.]+\.', '' }
+            if ($nome -in 'svchost', 'SearchHost', 'VoiceAccess') { continue }   # recursos do próprio Windows
+            $emUso = switch -regex ($nome) {
+                '^(ms-teams|Teams|MSTeams|MicrosoftTeams)$' { 'Teams'; break }
+                '^Zoom' { 'Zoom'; break }
+                '^(chrome|msedge|firefox|opera|brave|vivaldi)$' { "navegador ($nome)"; break }
+                default { $nome }
+            }
+            break
+        }
+        $r.Close()
+        if ($emUso) { break }
+    }
+    $emUso
+}
 #endregion
 
 #region Manutenção (o que a tarefa agendada executa)
@@ -152,6 +192,8 @@ function Clear-LixeiraAntiga([int]$dias) {
 }
 
 if ($Manutencao) {
+    # Não limpa no meio de uma chamada: espera ela acabar (no máximo 2 horas)
+    for ($i = 0; $i -lt 60 -and (Get-ChamadaAtiva); $i++) { Start-Sleep -Seconds 120 }
     $partes = @(); $total = 0
     if ($Config.ManutTemp) { $b = Clear-Antigos $env:TEMP 2; $total += $b; $partes += 'temporários: {0:N0} MB' -f ($b / 1MB) }
     if ($Config.ManutLixeira) { $b = Clear-LixeiraAntiga 30; $total += $b; $partes += 'Lixeira antiga: {0:N0} MB' -f ($b / 1MB) }
@@ -527,6 +569,25 @@ $XamlTexto = @'
         </Setter.Value>
       </Setter>
     </Style>
+    <!-- Cartão clicável (tela de boas-vindas) -->
+    <Style x:Key="BtnCartao" TargetType="Button">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" Background="#161618" BorderBrush="#2A2A2F" BorderThickness="1" CornerRadius="18" Padding="24,22">
+              <ContentPresenter/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="#1A2614"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="#A6F23A"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
     <Style x:Key="BtnJanela" TargetType="Button">
       <Setter Property="Width" Value="44"/>
       <Setter Property="Height" Value="32"/>
@@ -834,6 +895,7 @@ $XamlTexto = @'
           <StackPanel>
             <RadioButton x:Name="mnPainel" Style="{StaticResource Menu}" Tag="&#xECA5;" Content="Painel" IsChecked="True"/>
             <RadioButton x:Name="mnJogos" Style="{StaticResource Menu}" Tag="&#xE7FC;" Content="Jogos e FPS"/>
+            <RadioButton x:Name="mnTrab" Style="{StaticResource Menu}" Tag="&#xE821;" Content="Trabalho" Visibility="Collapsed"/>
             <RadioButton x:Name="mnProc" Style="{StaticResource Menu}" Tag="&#xE9F5;" Content="Processos"/>
             <RadioButton x:Name="mnApps" Style="{StaticResource Menu}" Tag="&#xE71D;" Content="Aplicativos"/>
             <RadioButton x:Name="mnEspaco" Style="{StaticResource Menu}" Tag="&#xEDA2;" Content="Espaço em disco"/>
@@ -1910,6 +1972,21 @@ $XamlTexto = @'
 
                 <Border Style="{StaticResource Card}" Padding="26,22">
                   <StackPanel>
+                    <TextBlock Text="Perfil de uso" Style="{StaticResource TituloCard}"/>
+                    <TextBlock Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               Text="Muda o que aparece no menu. Vale na hora, sem reiniciar."/>
+                    <Border Background="#141416" CornerRadius="11" Padding="3" BorderBrush="#1F1F23" BorderThickness="1" HorizontalAlignment="Left" Margin="0,14,0,0">
+                      <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="rbPerfilGamer" Style="{StaticResource Seg}" Content="Gamer" GroupName="perfil"/>
+                        <RadioButton x:Name="rbPerfilPro" Style="{StaticResource Seg}" Content="Profissional" GroupName="perfil"/>
+                      </StackPanel>
+                    </Border>
+                    <TextBlock x:Name="txtPerfilDesc" Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                  </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Padding="26,22">
+                  <StackPanel>
                     <TextBlock Text="Estilo" Style="{StaticResource TituloCard}"/>
                     <CheckBox x:Name="chkBrilho" Content="Brilho neon nos anéis, linhas e no chip" Margin="0,14,0,0"/>
                     <TextBlock Style="{StaticResource Suave}" Margin="50,0,0,0" TextWrapping="Wrap"
@@ -2448,7 +2525,187 @@ $XamlTexto = @'
               </StackPanel>
             </ScrollViewer>
           </TabItem>
+
+          <!-- ===================== TRABALHO (perfil Profissional) ===================== -->
+          <TabItem>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="14,0,14,14">
+              <StackPanel>
+                <Border Style="{StaticResource Card}" Padding="22,16">
+                  <DockPanel>
+                    <Button x:Name="btnRelatorio" DockPanel.Dock="Right" Content="Gerar relatório do PC" VerticalAlignment="Center"/>
+                    <StackPanel>
+                      <TextBlock Text="Trabalho" FontSize="22" FontWeight="SemiBold"/>
+                      <TextBlock x:Name="txtRelatorioInfo" Style="{StaticResource Suave}" TextWrapping="Wrap"
+                                 Text="Chamadas sem travar, ficha do PC e conformidade. O relatório junta tudo num arquivo para mandar ao TI ou guardar."/>
+                    </StackPanel>
+                  </DockPanel>
+                </Border>
+
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.15*"/>
+                    <ColumnDefinition/>
+                  </Grid.ColumnDefinitions>
+
+                  <!-- Modo Reunião -->
+                  <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                      <DockPanel>
+                        <CheckBox x:Name="chkReuniao" DockPanel.Dock="Right" Content="Ativado" VerticalAlignment="Center"/>
+                        <StackPanel>
+                          <TextBlock Text="Modo Reunião" Style="{StaticResource TituloCard}"/>
+                          <TextBlock Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                     Text="Quando algum programa começa a usar o microfone (Teams, Zoom, Meet no navegador...), o Monitor protege a chamada — e desfaz tudo quando ela termina."/>
+                        </StackPanel>
+                      </DockPanel>
+                      <Border x:Name="bdReuniaoStatus" CornerRadius="12" Padding="14,10" Margin="0,12,0,4" Background="#141416">
+                        <TextBlock x:Name="txtReuniaoStatus" TextWrapping="Wrap" Text="Aguardando uma chamada."/>
+                      </Border>
+                      <CheckBox x:Name="chkReuniaoWU" Content="Pausar o Windows Update e downloads em segundo plano" Margin="0,8,0,2"/>
+                      <CheckBox x:Name="chkReuniaoSilenciar" Content="Silenciar os alertas comuns (CPU, RAM, disco) durante a chamada"/>
+                      <CheckBox x:Name="chkReuniaoAvisar" Content="Avisar se a internet ou o PC puserem a chamada em risco"/>
+                      <CheckBox x:Name="chkReuniaoReabrir" Content="Reabrir os programas fechados quando a chamada terminar"/>
+                      <DockPanel Margin="0,12,0,6">
+                        <Button x:Name="btnReuniaoListar" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="Atualizar lista" VerticalAlignment="Center"/>
+                        <TextBlock Text="Fechar estes programas durante chamadas:" FontWeight="SemiBold"/>
+                      </DockPanel>
+                      <WrapPanel x:Name="wpReuniaoFechar"/>
+                      <TextBlock Style="{StaticResource Suave}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"
+                                 Text="Bons candidatos: OneDrive, Dropbox, Google Drive, Steam, torrents — tudo que baixa ou sincroniza e disputa a internet com a chamada."/>
+                    </StackPanel>
+                  </Border>
+
+                  <!-- Qualidade da chamada -->
+                  <Border Grid.Column="1" Style="{StaticResource Card}">
+                    <StackPanel>
+                      <TextBlock Text="Qualidade para chamadas" Style="{StaticResource TituloCard}"/>
+                      <TextBlock Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,2,0,0" Text="Medida agora, últimos 60 segundos."/>
+                      <UniformGrid Columns="4" Margin="0,16,0,0">
+                        <StackPanel><TextBlock Text="Ping" Style="{StaticResource Suave}"/><TextBlock x:Name="txtChPing" Text="--" FontSize="20" FontWeight="SemiBold"/></StackPanel>
+                        <StackPanel><TextBlock Text="Variação" Style="{StaticResource Suave}"/><TextBlock x:Name="txtChJitter" Text="--" FontSize="20" FontWeight="SemiBold"/></StackPanel>
+                        <StackPanel><TextBlock Text="Perda" Style="{StaticResource Suave}"/><TextBlock x:Name="txtChPerda" Text="--" FontSize="20" FontWeight="SemiBold"/></StackPanel>
+                        <StackPanel><TextBlock Text="Processador" Style="{StaticResource Suave}"/><TextBlock x:Name="txtChCpu" Text="--" FontSize="20" FontWeight="SemiBold"/></StackPanel>
+                      </UniformGrid>
+                      <TextBlock x:Name="txtChDiag" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,16,0,0"/>
+                      <TextBlock x:Name="txtChDiagDesc" Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                      <TextBlock Text="Últimas chamadas" FontWeight="SemiBold" Margin="0,18,0,4"/>
+                      <TextBlock x:Name="txtSemChamadas" Style="{StaticResource Suave}" TextWrapping="Wrap" Text="As chamadas com mais de 1 minuto aparecem aqui, com a qualidade de cada uma."/>
+                      <ItemsControl x:Name="icChamadas">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Border Background="#141416" CornerRadius="10" Padding="12,8" Margin="0,3">
+                              <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding Nota}" Foreground="{Binding Cor}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <StackPanel>
+                                  <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                  <TextBlock Text="{Binding Sub}" Foreground="#8E8E96" FontSize="11" TextWrapping="Wrap"/>
+                                </StackPanel>
+                              </DockPanel>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </Border>
+                </Grid>
+
+                <!-- Inventário e conformidade -->
+                <DockPanel Margin="10,16,10,4">
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="btnInvCopiar" Style="{StaticResource BtnSecundario}" Content="Copiar ficha" Padding="12,5" FontSize="12" Margin="0,0,8,0"/>
+                    <Button x:Name="btnInvAtualizar" Style="{StaticResource BtnSecundario}" Content="Verificar de novo" Padding="12,5" FontSize="12"/>
+                  </StackPanel>
+                  <StackPanel>
+                    <TextBlock Text="Inventário e conformidade" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="txtInvInfo" Style="{StaticResource Suave}" Text="Verificando..."/>
+                  </StackPanel>
+                </DockPanel>
+                <ItemsControl x:Name="icConformidade">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Style="{StaticResource Card}">
+                        <DockPanel>
+                          <Button DockPanel.Dock="Bottom" Content="{Binding AcaoTexto}" Tag="{Binding Acao}" Visibility="{Binding AcaoVisivel}"
+                                  Style="{StaticResource BtnSecundario}" HorizontalAlignment="Left" Padding="12,5" FontSize="12" Margin="0,12,0,0"/>
+                          <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                              <Border Style="{StaticResource Bolha}"><TextBlock Text="{Binding Glifo}" Style="{StaticResource Icone}" Foreground="{Binding Cor}"/></Border>
+                              <TextBlock Text="{Binding Titulo}" Style="{StaticResource Suave}" FontSize="13" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding Status}" Foreground="{Binding Cor}" FontSize="17" FontWeight="SemiBold" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding Detalhe}" Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                          </StackPanel>
+                        </DockPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border Style="{StaticResource Card}">
+                  <StackPanel>
+                    <TextBlock Text="Ficha do computador" Style="{StaticResource TituloCard}"/>
+                    <ItemsControl x:Name="icFicha" Margin="0,10,0,0">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <StackPanel Margin="0,6,16,6">
+                            <TextBlock Text="{Binding Rotulo}" Style="{StaticResource Suave}"/>
+                            <TextBlock Text="{Binding Valor}" TextWrapping="Wrap"/>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
         </TabControl>
+      </Grid>
+
+      <!-- ================= BOAS-VINDAS: escolha do perfil ================= -->
+      <Grid x:Name="gdBoasVindas" Grid.ColumnSpan="2" Background="#F00B0B0D" Visibility="Collapsed">
+        <Border Background="#121214" BorderBrush="#1F1F23" BorderThickness="1" CornerRadius="22" Padding="36,32" MaxWidth="860"
+                HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+          <StackPanel>
+            <StackPanel Orientation="Horizontal">
+              <Path Data="M0,14 L10,4 L20,14 M0,22 L10,12 L20,22" Stroke="#A6F23A" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center"/>
+              <TextBlock Text="Bem-vindo ao Monitor PC" FontSize="24" FontWeight="SemiBold" Margin="14,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource Suave}" FontSize="14" TextWrapping="Wrap" Margin="0,10,0,22"
+                       Text="Como você usa este computador? O Monitor mostra o que importa para você. Dá para trocar depois em Aparência (botão de paleta no topo)."/>
+            <UniformGrid Columns="2">
+              <Button x:Name="btnEscolherGamer" Style="{StaticResource BtnCartao}" Margin="0,0,10,0">
+                  <StackPanel>
+                    <Border Style="{StaticResource Bolha}" Width="48" Height="48" CornerRadius="24" HorizontalAlignment="Left">
+                      <TextBlock Text="&#xE7FC;" Style="{StaticResource Icone}" FontSize="22"/>
+                    </Border>
+                    <TextBlock Text="Gamer" FontSize="20" FontWeight="SemiBold" Foreground="#F2F2F5" Margin="0,14,0,6"/>
+                    <TextBlock Foreground="#8E8E96" FontSize="13" TextWrapping="Wrap" Text="Uso o PC para jogar."/>
+                    <TextBlock Foreground="#C8C8CE" FontSize="13" TextWrapping="Wrap" Margin="0,12,0,0"
+                               Text="• FPS ao vivo e por que ele caiu&#x0a;• Modo Jogo automático&#x0a;• Ping e perda de pacotes&#x0a;• Resumo de cada partida"/>
+                  </StackPanel>
+                </Button>
+              <Button x:Name="btnEscolherPro" Style="{StaticResource BtnCartao}" Margin="10,0,0,0">
+                  <StackPanel>
+                    <Border Style="{StaticResource Bolha}" Width="48" Height="48" CornerRadius="24" HorizontalAlignment="Left">
+                      <TextBlock Text="&#xE821;" Style="{StaticResource Icone}" FontSize="22"/>
+                    </Border>
+                    <TextBlock Text="Profissional" FontSize="20" FontWeight="SemiBold" Foreground="#F2F2F5" Margin="0,14,0,6"/>
+                    <TextBlock Foreground="#8E8E96" FontSize="13" TextWrapping="Wrap" Text="Uso o PC para trabalhar ou na empresa."/>
+                    <TextBlock Foreground="#C8C8CE" FontSize="13" TextWrapping="Wrap" Margin="0,12,0,0"
+                               Text="• Modo Reunião: chamadas sem travar&#x0a;• Inventário e conformidade do PC&#x0a;• Relatório completo para o TI&#x0a;• Sem as funções de jogo"/>
+                  </StackPanel>
+                </Button>
+            </UniformGrid>
+            <TextBlock Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,20,0,0"
+                       Text="Os dois perfis têm Painel, alertas, limpeza, segurança, vida útil e otimização."/>
+          </StackPanel>
+        </Border>
       </Grid>
     </Grid>
   </Border>
@@ -3021,14 +3278,20 @@ function Update-Tela {
         } elseif ($cpu -ge 70 -and $c1) {
             $ui.txtDicaTitulo.Text = "$($c1.Nome) puxa a CPU"
             $ui.txtDica.Text = "Está usando $($c1.Cpu)% do processador agora."
+        } elseif ($Config.Perfil -eq 'Profissional' -and ($agora.Minute % 2)) {
+            $ui.txtDicaTitulo.Text = 'Relatório do PC'
+            $ui.txtDica.Text = 'Gere um relatório com hardware, segurança e conformidade para mandar ao TI ou guardar.'
+            $script:DicaGuia = 'relatorio'
         } else {
             $ui.txtDicaTitulo.Text = 'Acelere o boot'
             $ui.txtDica.Text = 'Desative programas que abrem sozinhos com o Windows — é a otimização que mais faz diferença.'
         }
-        $ui.btnDica.Content = if ($script:DicaGuia) { 'Ver solução  →' } else { 'Ir para Otimizar  →' }
+        $ui.btnDica.Content = if ($script:DicaGuia -eq 'relatorio') { 'Ir para Trabalho  →' } elseif ($script:DicaGuia) { 'Ver solução  →' } else { 'Ir para Otimizar  →' }
 
-        # Alertas
-        if ($Config.AlertasAtivos) {
+        Update-Reuniao $cpu $c1
+
+        # Alertas (numa chamada, o Modo Reunião pode silenciar os comuns)
+        if ($Config.AlertasAtivos -and -not ($script:Reuniao -and $Config.ReuniaoSilenciar)) {
             Test-Limite 'Cpu' $cpu $Config.CpuLimite 'Processador alto' ("CPU em $cpu% (limite $($Config.CpuLimite)%). Maior uso: $($c1.Nome) ($($c1.Cpu)%).")
             Test-Limite 'Ram' $ramUso $Config.RamLimite 'Memória RAM alta' ("RAM em $ramUso% (limite $($Config.RamLimite)%). Maior uso: $($r1.Nome) ($('{0:N0}' -f $r1.RamMB) MB).")
             Test-Limite 'Dsc' $dsc $Config.DiscoLimite 'Disco sobrecarregado' ("Disco ocupado $dsc% do tempo (limite $($Config.DiscoLimite)%).")
@@ -3598,6 +3861,7 @@ function Start-Seguranca {
 }
 
 function Show-Seguranca($r) {
+    $script:UltimaSeguranca = $r   # usado no relatório do PC
     $ui.icProtecao.ItemsSource = @($r.Protecao)
     $ui.icAchados.ItemsSource = @($r.Achados)
     $todos = @($r.Protecao) + @($r.Achados)
@@ -3661,6 +3925,8 @@ $timerSeg.add_Tick({
 $timerSegAgenda = New-Object Windows.Threading.DispatcherTimer
 $timerSegAgenda.Interval = [TimeSpan]::FromSeconds(5)
 $timerSegAgenda.add_Tick({
+    # No meio de uma chamada a verificação (que pesa no disco) espera: tenta de novo em 5 minutos
+    if ($script:Reuniao) { $timerSegAgenda.Interval = [TimeSpan]::FromMinutes(5); return }
     $timerSegAgenda.Interval = [TimeSpan]::FromMinutes(15)
     Start-Seguranca
 })
@@ -4599,6 +4865,7 @@ function Start-Erros {
 }
 
 function Show-Erros($r) {
+    $script:UltimosErros = $r   # usado no relatório do PC
     $itens = @($r.Itens)
     $resumo = foreach ($k in $CategoriasErro.Keys) {
         $c = $CategoriasErro[$k]
@@ -5501,7 +5768,7 @@ function Update-Jogos($cpu, $ramUso, $dsc, $g) {
         $script:fpsJob = $null
         $script:FpsRetentar = (Get-Date).AddSeconds(10)
     }
-    if ($Config.MedirFps -and -not $script:fpsJob -and (Get-Date) -ge $script:FpsRetentar) { Start-Fps }
+    if ($Config.MedirFps -and $Config.Perfil -ne 'Profissional' -and -not $script:fpsJob -and (Get-Date) -ge $script:FpsRetentar) { Start-Fps }
 
     # Sinais do momento
     $nucleo = 0
@@ -5888,6 +6155,7 @@ function Update-Ping {
         $par[0].Add($par[1]); if ($par[0].Count -gt 60) { $par[0].RemoveAt(0) }
     }
     if ($script:Sessao) { $script:Sessao.Pings += , $u.Internet }
+    if ($script:Reuniao) { $script:Reuniao.Pings += , $u.Internet }
     $net = Get-StatsPing $script:PingNet
     $rot = Get-StatsPing $script:PingRot
     Add-Historico 'Ping' $(if ($null -ne $u.Internet) { $u.Internet } else { -1 })   # -1 marca perda no gráfico
@@ -5962,31 +6230,48 @@ function Enable-ModoJogo($jogo) {
             }
         } catch {}
     }
-    foreach ($nome in @($Config.ModoJogoFechar)) {
-        if (-not $nome -or $nome -eq $jogo) { continue }
-        $procs = @(Get-Process -Name $nome -ErrorAction SilentlyContinue)
-        if (-not $procs.Count) { continue }
-        $caminho = ($procs | Where-Object { $_.Path } | Select-Object -First 1).Path
-        if (-not $caminho) { $caminho = $script:Caminhos[$nome] }
-        foreach ($p in $procs) { try { [void]$p.CloseMainWindow() } catch {} }
-        $m.Fechados += @{ Nome = $nome; Caminho = $caminho }
-    }
-    if ($m.Fechados.Count) {
-        $m.Feito += 'fechou ' + (($m.Fechados | ForEach-Object { $_.Nome }) -join ', ')
-        $timerFecharForca.Stop(); $timerFecharForca.Start()
-    }
+    $m.Fechados = Close-Programas $Config.ModoJogoFechar $jogo
+    if ($m.Fechados.Count) { $m.Feito += 'fechou ' + (($m.Fechados | ForEach-Object { $_.Nome }) -join ', ') }
     $script:ModoAplicado = $m
     if ($script:Sessao) { $script:Sessao.ModoJogo = $true }
     Update-ModoStatus
 }
 
-# Quem não fechou pelo "X" em 5 s é encerrado
+# Fecha os programas pelo "X" (Modo Jogo e Modo Reunião). Devolve uma lista com nome e caminho de cada
+# um, para reabrir depois. Quem não fechar em 5 s é encerrado pelo timerFecharForca.
+$script:ParaForcar = @()
+function Close-Programas($nomes, $exceto) {
+    $fechados = New-Object System.Collections.Generic.List[object]
+    foreach ($nome in @($nomes)) {
+        if (-not $nome -or $nome -eq $exceto) { continue }
+        $procs = @(Get-Process -Name $nome -ErrorAction SilentlyContinue)
+        if (-not $procs.Count) { continue }
+        $caminho = ($procs | Where-Object { $_.Path } | Select-Object -First 1).Path
+        if (-not $caminho) { $caminho = $script:Caminhos[$nome] }
+        foreach ($p in $procs) { try { [void]$p.CloseMainWindow() } catch {} }
+        $fechados.Add(@{ Nome = $nome; Caminho = $caminho })
+    }
+    if ($fechados.Count) {
+        $script:ParaForcar = @($fechados | ForEach-Object { $_.Nome })
+        $timerFecharForca.Stop(); $timerFecharForca.Start()
+    }
+    , $fechados
+}
+
+function Open-Programas($fechados) {
+    foreach ($f in $fechados) {
+        if ($f.Caminho -and (Test-Path $f.Caminho) -and -not (Get-Process -Name $f.Nome -ErrorAction SilentlyContinue)) {
+            try { Start-Process $f.Caminho -WindowStyle Minimized } catch {}
+        }
+    }
+}
+
 $timerFecharForca = New-Object Windows.Threading.DispatcherTimer
 $timerFecharForca.Interval = [TimeSpan]::FromSeconds(5)
 $timerFecharForca.add_Tick({
     $timerFecharForca.Stop()
-    if (-not $script:ModoAplicado) { return }
-    foreach ($f in $script:ModoAplicado.Fechados) { Get-Process -Name $f.Nome -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
+    foreach ($n in $script:ParaForcar) { Get-Process -Name $n -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
+    $script:ParaForcar = @()
 })
 
 function Disable-ModoJogo {
@@ -5996,13 +6281,7 @@ function Disable-ModoJogo {
     $timerFecharForca.Stop()
     if ($m.Plano) { try { & powercfg /setactive $m.Plano | Out-Null } catch {} }
     if ($m.Indexacao) { try { Start-Process sc.exe -ArgumentList 'start WSearch' -WindowStyle Hidden } catch {} }
-    if ($Config.ModoJogoReabrir) {
-        foreach ($f in $m.Fechados) {
-            if ($f.Caminho -and (Test-Path $f.Caminho) -and -not (Get-Process -Name $f.Nome -ErrorAction SilentlyContinue)) {
-                try { Start-Process $f.Caminho -WindowStyle Minimized } catch {}
-            }
-        }
-    }
+    if ($Config.ModoJogoReabrir) { Open-Programas $m.Fechados }
     Update-ModoStatus "Modo Jogo desfeito às $((Get-Date).ToString('HH:mm')) ($($m.Jogo) fechado): tudo voltou ao normal."
 }
 
@@ -6020,11 +6299,12 @@ function Update-ModoStatus([string]$texto = '') {
 }
 
 # Lista de programas que podem ser fechados: os abertos agora (fora do Windows) + os já escolhidos
-function Update-ListaFechar {
-    $ui.wpModoFechar.Children.Clear()
+# $chave: item da configuração com a lista marcada (ModoJogoFechar ou ReuniaoFechar); $evitar: nunca sugerir esses
+function Update-ListaFechar($painel = $ui.wpModoFechar, [string]$chave = 'ModoJogoFechar', $evitar = @()) {
+    $painel.Children.Clear()
     if (((Get-Date) - $script:CaminhosHora).TotalSeconds -gt 10) { Update-Caminhos }
     $nomes = New-Object System.Collections.Generic.List[string]
-    foreach ($n in @($Config.ModoJogoFechar)) { if ($n -and -not $nomes.Contains($n)) { $nomes.Add($n) } }
+    foreach ($n in @($Config.$chave)) { if ($n -and -not $nomes.Contains($n)) { $nomes.Add($n) } }
     $ignorar = @($NaoJogos | Where-Object { $_ -in 'dwm', 'explorer', 'powershell', 'ApplicationFrameHost', 'LockApp', 'SearchHost',
         'StartMenuExperienceHost', 'TextInputHost', 'ShellExperienceHost', 'Monitor PC' }) + @('svchost', 'conhost', 'RuntimeBroker', 'dllhost', 'sihost', 'ctfmon', 'fake_presentmon', 'PresentMon')
     # Só programas que a pessoa usa: os que têm janela aberta ou os de bandeja mais comuns (não serviços de fundo)
@@ -6037,14 +6317,14 @@ function Update-ListaFechar {
         if ($p.Nome -notin $comJanela -and $p.Nome -notin $deBandeja) { continue }
         $cam = $script:Caminhos[$p.Nome]
         if ($cam -and $cam.StartsWith($env:windir, [StringComparison]::OrdinalIgnoreCase)) { continue }
-        if ($p.Nome -in $ignorar -or $p.Nome -eq $script:JogoAtual -or $nomes.Contains($p.Nome)) { continue }
+        if ($p.Nome -in $ignorar -or $p.Nome -in $evitar -or $p.Nome -eq $script:JogoAtual -or $nomes.Contains($p.Nome)) { continue }
         $nomes.Add($p.Nome)
     }
     foreach ($n in $nomes) {
         $tb = New-Object Windows.Controls.Primitives.ToggleButton
         $tb.Style = $window.FindResource('ChipSel')
-        $tb.Tag = $n
-        $tb.IsChecked = @($Config.ModoJogoFechar) -contains $n
+        $tb.Tag = [pscustomobject]@{ Chave = $chave; Nome = $n }
+        $tb.IsChecked = @($Config.$chave) -contains $n
         $sp = New-Object Windows.Controls.StackPanel
         $sp.Orientation = 'Horizontal'
         $ico = Get-IconeProcesso $n
@@ -6054,12 +6334,13 @@ function Update-ListaFechar {
         $tb.Content = $sp
         $tb.add_Click({
             param($s, $e)
-            $lista = @(@($Config.ModoJogoFechar) | Where-Object { $_ -and $_ -ne $s.Tag })
-            if ($s.IsChecked) { $lista += $s.Tag }
-            $Config.ModoJogoFechar = $lista
+            $k = $s.Tag.Chave
+            $lista = @(@($Config.$k) | Where-Object { $_ -and $_ -ne $s.Tag.Nome })
+            if ($s.IsChecked) { $lista += $s.Tag.Nome }
+            $Config.$k = $lista
             Save-Config
         })
-        [void]$ui.wpModoFechar.Children.Add($tb)
+        [void]$painel.Children.Add($tb)
     }
 }
 
@@ -6068,7 +6349,7 @@ $ui.chkModoPlano.IsChecked = [bool]$Config.ModoJogoPlano
 $ui.chkModoIndex.IsChecked = [bool]$Config.ModoJogoIndexacao
 $ui.chkModoReabrir.IsChecked = [bool]$Config.ModoJogoReabrir
 $ui.chkModoIndex.IsEnabled = $EhAdmin
-if (-not $EhAdmin) { $ui.chkModoIndex.Content = 'Pausar a indexação de arquivos (precisa abrir como admin)' }
+if (-not $EhAdmin) { $ui.chkModoIndex.Content = 'Pausar a indexação de arquivos (precisa abrir como admin)'; $ui.chkModoIndex.Opacity = 0.45 }
 $ui.chkModoJogo.add_Click({
     $Config.ModoJogo = [bool]$ui.chkModoJogo.IsChecked; Save-Config
     if (-not $Config.ModoJogo) { Disable-ModoJogo }
@@ -6178,8 +6459,590 @@ $ui.btnLimparSessoes.add_Click({
 Show-Sessoes
 #endregion
 
+#region Perfil e aba Trabalho (Modo Reunião, inventário e relatório)
+# ---- Perfil: Gamer mostra Jogos e FPS; Profissional troca por Trabalho e desliga o que é de jogo ----
+function Update-Perfil {
+    $pro = $Config.Perfil -eq 'Profissional'
+    $ui.mnJogos.Visibility = if ($pro) { 'Collapsed' } else { 'Visible' }
+    $ui.mnTrab.Visibility = if ($pro) { 'Visible' } else { 'Collapsed' }
+    $script:CarregandoPerfil = $true
+    $ui.rbPerfilGamer.IsChecked = -not $pro
+    $ui.rbPerfilPro.IsChecked = $pro
+    $script:CarregandoPerfil = $false
+    $ui.txtPerfilDesc.Text = if ($pro) { 'Profissional: aba Trabalho com Modo Reunião, inventário, conformidade e relatório do PC. As funções de jogo ficam desligadas.' }
+                             else { 'Gamer: aba Jogos e FPS com medição de FPS, Modo Jogo, ping e sessões de jogo.' }
+    if ($pro) {
+        if ($script:fpsJob) { Stop-Fps }
+        Stop-SessaoJogo; Disable-ModoJogo; $script:JogoAtual = $null
+        if ($Overlay.IsVisible) { $Overlay.Hide() }
+        if ($ui.tabs.SelectedIndex -eq 8) { Select-Aba 0 }
+    } else {
+        Stop-Reuniao
+        if ($ui.tabs.SelectedIndex -eq 12) { Select-Aba 0 }
+    }
+}
+
+function Set-Perfil([string]$perfil) {
+    $Config.Perfil = $perfil
+    Save-Config
+    $ui.gdBoasVindas.Visibility = 'Collapsed'
+    Update-Perfil
+}
+
+$ui.btnEscolherGamer.add_Click({ Set-Perfil 'Gamer' })
+$ui.btnEscolherPro.add_Click({ Set-Perfil 'Profissional'; Select-Aba 12 })
+$ui.rbPerfilGamer.add_Checked({ if (-not $script:CarregandoPerfil) { Set-Perfil 'Gamer' } })
+$ui.rbPerfilPro.add_Checked({ if (-not $script:CarregandoPerfil) { Set-Perfil 'Profissional' } })
+
+# ---- Modo Reunião: percebe a chamada pelo microfone em uso (Get-ChamadaAtiva) ----
+$ChamadasPath = Join-Path $ConfigDir 'chamadas.jsonl'
+$script:Reuniao = $null
+$script:ChamadaApp = $null
+$script:ChamadaSeg = 0
+$script:SemChamadaSeg = 0
+$script:ReuniaoUltAviso = [DateTime]::MinValue
+# Programas de chamada (e navegadores, onde rodam Meet/Teams web): nunca sugerir fechar
+$AppsDeChamada = 'Teams', 'ms-teams', 'Zoom', 'Slack', 'Discord', 'Skype', 'Webex', 'CiscoCollabHost', 'WhatsApp', 'WhatsApp.Root',
+    'Telegram', 'chrome', 'msedge', 'firefox', 'opera', 'brave', 'vivaldi'
+
+function Start-Reuniao($app) {
+    if ($script:Reuniao) { return }
+    $m = @{ App = $app; Desde = Get-Date; Servicos = @(); Fechados = $null; Feito = @(); CpuMax = 0; CpuSoma = 0.0; N = 0; Pings = @(); Riscos = 0; RiscoSeg = 0 }
+    # Windows Update, BITS e Otimização de Entrega baixam em segundo plano e disputam a internet com a chamada.
+    # São serviços "sob demanda": parar agora e iniciar no fim não perde nada (o download continua de onde parou).
+    if ($Config.ReuniaoPausarWU -and $EhAdmin) {
+        foreach ($sv in 'wuauserv', 'BITS', 'DoSvc') {
+            try {
+                if ((Get-Service $sv -ErrorAction Stop).Status -eq 'Running') {
+                    Start-Process sc.exe -ArgumentList "stop $sv" -WindowStyle Hidden
+                    $m.Servicos += $sv
+                }
+            } catch {}
+        }
+        if ($m.Servicos.Count) { $m.Feito += 'Windows Update e downloads pausados' }
+    }
+    $m.Fechados = Close-Programas $Config.ReuniaoFechar $null
+    if ($m.Fechados.Count) { $m.Feito += 'fechou ' + (($m.Fechados | ForEach-Object { $_.Nome }) -join ', ') }
+    if ($Config.ReuniaoSilenciar) { $m.Feito += 'alertas comuns silenciados' }
+    $m.Feito += 'verificações do Monitor adiadas'
+    $script:Reuniao = $m
+    Update-ReuniaoStatus
+}
+
+function Stop-Reuniao {
+    $m = $script:Reuniao
+    if (-not $m) { return }
+    $script:Reuniao = $null
+    $timerFecharForca.Stop()
+    foreach ($sv in $m.Servicos) { try { Start-Process sc.exe -ArgumentList "start $sv" -WindowStyle Hidden } catch {} }
+    if ($Config.ReuniaoReabrir -and $m.Fechados) { Open-Programas $m.Fechados }
+    $minutos = ((Get-Date) - $m.Desde).TotalMinutes
+    if ($minutos -ge 1) {
+        $ping = Get-StatsPing $m.Pings
+        $reg = [ordered]@{
+            App = $m.App; Inicio = $m.Desde.ToString('s'); Minutos = [Math]::Round($minutos, 1)
+            PingMedio = $(if ($null -ne $ping.Media) { [Math]::Round($ping.Media) } else { $null })
+            Jitter = $(if ($null -ne $ping.Jitter) { [Math]::Round($ping.Jitter) } else { $null })
+            PerdaPct = [Math]::Round($ping.Perda, 1); CpuMax = $m.CpuMax
+            CpuMedio = $(if ($m.N) { [Math]::Round($m.CpuSoma / $m.N) } else { 0 }); Riscos = $m.Riscos
+        }
+        try { Add-Content -Path $ChamadasPath -Value ($reg | ConvertTo-Json -Compress) -Encoding UTF8 } catch {}
+        Show-Chamadas
+    }
+    Update-ReuniaoStatus "Chamada encerrada às $((Get-Date).ToString('HH:mm')): tudo voltou ao normal."
+}
+
+function Update-ReuniaoStatus([string]$texto = '') {
+    if ($script:Reuniao) {
+        $m = $script:Reuniao
+        $ui.txtReuniaoStatus.Text = "● Chamada em andamento ($($m.App)) desde $($m.Desde.ToString('HH:mm')): " + ($m.Feito -join ' · ') + '.'
+        $ui.txtReuniaoStatus.Foreground = Get-Pincel $Cor.Lima
+        $ui.bdReuniaoStatus.Background = Get-Pincel ('#' + $Paleta['1A2614'])
+    } else {
+        $ui.txtReuniaoStatus.Text = if ($texto) { $texto } elseif ($Config.Reuniao) { 'Aguardando uma chamada. O Monitor percebe sozinho quando o microfone começa a ser usado.' }
+                                    else { 'Desligado. Ative para o Monitor proteger suas chamadas automaticamente.' }
+        $ui.txtReuniaoStatus.Foreground = Get-Pincel '#C8C8CE'
+        $ui.bdReuniaoStatus.Background = Get-Pincel '#141416'
+    }
+}
+
+# O que pode atrapalhar uma chamada agora (internet de casa, provedor ou o próprio PC)
+function Get-DiagChamada($net, $rot, $cpu, $top) {
+    if ($net.N -lt 5) { return @{ T = 'Medindo...'; D = ''; Cor = '#F2F2F5'; Risco = $false } }
+    if ($rot.Perda -ge 2 -or ($null -ne $rot.Media -and $rot.Media -gt 15)) {
+        return @{ T = 'Wi-Fi ou rede local instável'; D = 'O próprio roteador está respondendo mal: a voz pode picotar. Use cabo ou aproxime-se do roteador.'; Cor = $Cor.Vermelho; Risco = $true }
+    }
+    if ($net.Perda -ge 2) {
+        return @{ T = 'Perda de pacotes na internet'; D = ('{0:N0}% dos pacotes se perdem: a voz picota e o vídeo congela. Desligar a câmera ajuda; se continuar, é o provedor.' -f $net.Perda); Cor = $Cor.Vermelho; Risco = $true }
+    }
+    if ($null -ne $net.Jitter -and $net.Jitter -gt 30) {
+        return @{ T = 'Conexão oscilando'; D = 'O tempo de resposta varia muito — alguém pode estar baixando ou vendo vídeo na mesma rede. A voz pode atrasar.'; Cor = $Cor.Ambar; Risco = $true }
+    }
+    if ($cpu -ge 90) {
+        return @{ T = 'Processador no limite'; D = "$(if ($top) { "$($top.Nome) usa $($top.Cpu)% agora. " })O vídeo da chamada pode travar: feche o que não estiver usando."; Cor = $Cor.Ambar; Risco = $true }
+    }
+    if ($null -ne $net.Media -and $net.Media -gt 150) {
+        return @{ T = 'Ping alto'; D = 'A conexão é estável, mas lenta: pode haver um pequeno atraso na conversa.'; Cor = $Cor.Ambar; Risco = $false }
+    }
+    @{ T = 'Pronto para chamadas'; D = 'Internet estável e PC com folga.'; Cor = $Cor.Lima; Risco = $false }
+}
+
+# Chamado a cada segundo pelo Update-Tela
+function Update-Reuniao($cpu, $top) {
+    if ($Config.Perfil -ne 'Profissional') { return }
+    if ($script:Tick % 2 -eq 0) {   # o registro do microfone é lido a cada 2 s
+        $app = $null
+        try { $app = Get-ChamadaAtiva } catch {}
+        if ($app) { $script:ChamadaApp = $app; $script:ChamadaSeg += 2; $script:SemChamadaSeg = 0 }
+        else { $script:ChamadaSeg = 0; $script:SemChamadaSeg += 2 }
+    }
+    # Começa depois de 4 s com o microfone em uso; termina 10 s depois de ele ser solto (evita reagir a um áudio rápido)
+    if (-not $script:Reuniao -and $Config.Reuniao -and $script:ChamadaSeg -ge 4) { Start-Reuniao $script:ChamadaApp }
+    elseif ($script:Reuniao -and $script:SemChamadaSeg -ge 10) { Stop-Reuniao }
+
+    $m = $script:Reuniao
+    if (-not $m -and $ui.tabs.SelectedIndex -ne 12) { return }
+    $net = Get-StatsPing $script:PingNet
+    $rot = Get-StatsPing $script:PingRot
+    $d = Get-DiagChamada $net $rot $cpu $top
+    if ($m) {
+        $m.N++; $m.CpuSoma += $cpu
+        if ($cpu -gt $m.CpuMax) { $m.CpuMax = $cpu }
+        $m.RiscoSeg = if ($d.Risco) { $m.RiscoSeg + 1 } else { 0 }
+        if ($m.RiscoSeg -eq 10) {   # 10 s seguidos em risco
+            $m.Riscos++
+            if ($Config.ReuniaoAvisar -and ((Get-Date) - $script:ReuniaoUltAviso).TotalMinutes -ge 5) {
+                $script:ReuniaoUltAviso = Get-Date
+                Send-Alerta "Chamada em risco: $($d.T)" $d.D
+            }
+        }
+    }
+    if ($ui.tabs.SelectedIndex -ne 12) { return }
+    $u = $PingSync.Ultimo
+    $ui.txtChPing.Text = if ($u -and $null -ne $u.Internet) { '{0} ms' -f [int]$u.Internet } else { '--' }
+    $ui.txtChJitter.Text = if ($null -ne $net.Jitter) { '{0:N0} ms' -f $net.Jitter } else { '--' }
+    $ui.txtChPerda.Text = '{0:N0}%' -f $net.Perda
+    $ui.txtChPerda.Foreground = Get-Pincel $(if ($net.Perda -ge 2) { $Cor.Vermelho } elseif ($net.Perda -gt 0) { $Cor.Ambar } else { '#F2F2F5' })
+    $ui.txtChCpu.Text = "$cpu%"
+    $ui.txtChCpu.Foreground = Get-Pincel $(if ($cpu -ge 90) { $Cor.Ambar } else { '#F2F2F5' })
+    $ui.txtChDiag.Text = $d.T; $ui.txtChDiag.Foreground = Get-Pincel $d.Cor; $ui.txtChDiagDesc.Text = $d.D
+}
+
+function Show-Chamadas {
+    $linhas = @()
+    if (Test-Path $ChamadasPath) {
+        $linhas = @(Get-Content $ChamadasPath -Encoding UTF8 -ErrorAction SilentlyContinue | Where-Object { $_ } | Select-Object -Last 8 | ForEach-Object { try { $_ | ConvertFrom-Json } catch {} })
+    }
+    [array]::Reverse($linhas)
+    $ui.icChamadas.ItemsSource = @($linhas | ForEach-Object {
+        $nota = if ($_.PerdaPct -ge 5 -or $_.Riscos -ge 3) { @('Ruim', $Cor.Vermelho) } elseif ($_.PerdaPct -ge 1 -or $_.Riscos -or $_.CpuMax -ge 95) { @('Instável', $Cor.Ambar) } else { @('Boa', $Cor.Lima) }
+        [pscustomobject]@{
+            Titulo = '{0} · {1:dd/MM HH:mm} · {2:N0} min' -f $_.App, [datetime]::Parse($_.Inicio), $_.Minutos
+            Sub = 'Ping {0} · perda {1}% · CPU máx. {2}%{3}' -f $(if ($null -ne $_.PingMedio) { "$($_.PingMedio) ms" } else { '--' }), $_.PerdaPct, $_.CpuMax,
+                  $(if ($_.Riscos) { " · $($_.Riscos) momento(s) em risco" } else { '' })
+            Nota = $nota[0]; Cor = $nota[1]
+        } })
+    $ui.txtSemChamadas.Visibility = if ($linhas.Count) { 'Collapsed' } else { 'Visible' }
+}
+
+function Update-ListaReuniao { Update-ListaFechar $ui.wpReuniaoFechar 'ReuniaoFechar' $AppsDeChamada }
+
+$ui.chkReuniao.IsChecked = [bool]$Config.Reuniao
+$ui.chkReuniaoWU.IsChecked = [bool]$Config.ReuniaoPausarWU
+$ui.chkReuniaoSilenciar.IsChecked = [bool]$Config.ReuniaoSilenciar
+$ui.chkReuniaoAvisar.IsChecked = [bool]$Config.ReuniaoAvisar
+$ui.chkReuniaoReabrir.IsChecked = [bool]$Config.ReuniaoReabrir
+$ui.chkReuniaoWU.IsEnabled = $EhAdmin
+if (-not $EhAdmin) { $ui.chkReuniaoWU.Content = 'Pausar o Windows Update e downloads (só abrindo como admin)'; $ui.chkReuniaoWU.Opacity = 0.45 }
+$ui.chkReuniao.add_Click({
+    $Config.Reuniao = [bool]$ui.chkReuniao.IsChecked; Save-Config
+    if (-not $Config.Reuniao) { Stop-Reuniao }
+    Update-ReuniaoStatus
+})
+$ui.chkReuniaoWU.add_Click({ $Config.ReuniaoPausarWU = [bool]$ui.chkReuniaoWU.IsChecked; Save-Config })
+$ui.chkReuniaoSilenciar.add_Click({ $Config.ReuniaoSilenciar = [bool]$ui.chkReuniaoSilenciar.IsChecked; Save-Config })
+$ui.chkReuniaoAvisar.add_Click({ $Config.ReuniaoAvisar = [bool]$ui.chkReuniaoAvisar.IsChecked; Save-Config })
+$ui.chkReuniaoReabrir.add_Click({ $Config.ReuniaoReabrir = [bool]$ui.chkReuniaoReabrir.IsChecked; Save-Config })
+$ui.btnReuniaoListar.add_Click({ Update-ListaReuniao })
+Update-ReuniaoStatus
+Show-Chamadas
+
+# ---- Inventário e conformidade ----
+$ScriptInventario = {
+    param($CorOk, $EhAdmin)
+    $amb = '#FFB020'; $verm = '#FF5A4D'; $neutro = '#8E8E96'
+    $ficha = New-Object System.Collections.Generic.List[object]
+    $checks = New-Object System.Collections.Generic.List[object]
+    function Add-Ficha($rotulo, $valor) { if ("$valor".Trim()) { $ficha.Add([pscustomobject]@{ Rotulo = $rotulo; Valor = "$valor".Trim() }) } }
+    function Add-Check($titulo, $glifo, $status, $detalhe, $cor, $acao = '', $acaoTexto = '') {
+        $nivel = if ($cor -eq $verm) { 'Crítico' } elseif ($cor -eq $amb) { 'Atenção' } elseif ($cor -eq $neutro) { 'Info' } else { 'OK' }
+        $checks.Add([pscustomobject]@{
+            Titulo = $titulo; Glifo = [string][char]$glifo; Status = $status; Detalhe = $detalhe; Cor = $cor; Nivel = $nivel
+            Acao = $acao; AcaoTexto = $acaoTexto; AcaoVisivel = $(if ($acao) { 'Visible' } else { 'Collapsed' })
+        })
+    }
+    # Fabricantes de placa-mãe deixam textos genéricos onde deveria estar o modelo/número de série
+    function Test-Generico($s) { "$s".Trim() -match '^(To Be Filled.*|Default string|System (Product Name|Serial Number|manufacturer)|O\.?E\.?M.*|None|Not Applicable|0+|)$' }
+
+    # Ficha
+    $cs = Get-CimInstance Win32_ComputerSystem
+    $os = Get-CimInstance Win32_OperatingSystem
+    $bios = Get-CimInstance Win32_BIOS
+    $placa = Get-CimInstance Win32_BaseBoard
+    $cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction SilentlyContinue
+    Add-Ficha 'Nome do computador' $env:COMPUTERNAME
+    Add-Ficha 'Usuário' "$env:USERDOMAIN\$env:USERNAME"
+    $rede = if ($cs.PartOfDomain) { "Domínio $($cs.Domain)" } else { "Grupo de trabalho $($cs.Workgroup) (fora de domínio)" }
+    try { if ((& dsregcmd /status 2>$null | Out-String) -match 'AzureAdJoined\s*:\s*YES') { $rede += ' · ingressado no Microsoft Entra ID' } } catch {}
+    Add-Ficha 'Rede da empresa' $rede
+    $fab = if (Test-Generico $cs.Manufacturer) { $placa.Manufacturer } else { $cs.Manufacturer }
+    $mod = if (Test-Generico $cs.Model) { "$($placa.Product) (placa-mãe)" } else { $cs.Model }
+    Add-Ficha 'Fabricante e modelo' "$fab $mod"
+    $serie = if (-not (Test-Generico $bios.SerialNumber)) { $bios.SerialNumber }
+             elseif (-not (Test-Generico $placa.SerialNumber)) { "$($placa.SerialNumber) (placa-mãe)" } else { 'não informado pelo fabricante' }
+    Add-Ficha 'Número de série' $serie
+    $build = if ($cv) { "$($cv.CurrentBuild).$($cv.UBR)" } else { $os.BuildNumber }
+    Add-Ficha 'Windows' "$($os.Caption -replace '^Microsoft ', '') $($cv.DisplayVersion) (build $build)"
+    Add-Ficha 'Windows instalado em' $os.InstallDate.ToString('dd/MM/yyyy')
+    Add-Ficha 'Processador' (Get-CimInstance Win32_Processor | Select-Object -First 1).Name
+    Add-Ficha 'Memória RAM' ('{0:N0} GB' -f ($cs.TotalPhysicalMemory / 1GB))
+    Add-Ficha 'Discos' (@(Get-CimInstance Win32_DiskDrive | ForEach-Object { '{0} ({1:N0} GB)' -f "$($_.Model)".Trim(), ($_.Size / 1GB) }) -join ' · ')
+    Add-Ficha 'Placa de vídeo' (@(Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notmatch 'Basic|Virtual|Remote|Parsec|Meta' } | ForEach-Object { $_.Name }) -join ' · ')
+    Add-Ficha 'BIOS' ('{0} de {1:dd/MM/yyyy}' -f $bios.SMBIOSBIOSVersion, $bios.ReleaseDate)
+    try {
+        $ip = Get-NetIPConfiguration -ErrorAction Stop | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1
+        if ($ip) { Add-Ficha 'Conexão' ('{0} · IP {1} · MAC {2}' -f $ip.InterfaceAlias, @($ip.IPv4Address)[0].IPAddress, $ip.NetAdapter.MacAddress) }
+    } catch {}
+
+    # Licença do Windows
+    try {
+        $lic = Get-CimInstance SoftwareLicensingProduct -Filter "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f' AND PartialProductKey IS NOT NULL" -ErrorAction Stop | Select-Object -First 1
+        $tipo = switch -regex ("$($lic.Description)") { 'OEM' { ' de fábrica (OEM)'; break } 'RETAIL' { ' de varejo'; break } 'VOLUME' { ' corporativa (volume)'; break } default { '' } }
+        if ($lic.LicenseStatus -eq 1) { Add-Check 'Licença do Windows' 0xE8D7 'Ativado' "Windows original, licença$tipo." $CorOk }
+        else { Add-Check 'Licença do Windows' 0xE8D7 'Não ativado' 'O Windows mostra avisos e bloqueia a personalização. Ative com a chave da empresa ou da loja.' $verm 'ativacao' 'Abrir ativação' }
+    } catch { Add-Check 'Licença do Windows' 0xE8D7 'Não verificado' 'Não foi possível consultar a licença.' $neutro }
+
+    # Windows Update: pendentes, reinicialização e quando foi a última atualização (sem contar as definições do antivírus)
+    $reiniciar = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
+    $pend = $null; $ultima = $null
+    try {
+        $busca = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()
+        $total = $busca.GetTotalHistoryCount()
+        if ($total) {
+            $ultima = $busca.QueryHistory(0, [Math]::Min(200, $total)) |
+                Where-Object { $_.Operation -eq 1 -and $_.ResultCode -eq 2 -and $_.Title -notmatch 'KB2267602|KB4052623|KB915597' } |
+                Sort-Object Date -Descending | Select-Object -First 1
+        }
+        # Definições do antivírus se instalam sozinhas várias vezes por dia: não contam como pendência
+        $pend = @($busca.Search("IsInstalled=0 and Type='Software' and IsHidden=0").Updates | ForEach-Object { $_.Title } |
+            Where-Object { $_ -notmatch 'KB2267602|KB4052623|KB915597' })
+    } catch {}
+    $dias = if ($ultima) { [int]((Get-Date) - $ultima.Date.ToLocalTime()).TotalDays } else { $null }
+    $txtUltima = if ($null -ne $dias) { "Última instalada há $dias dia(s), em $($ultima.Date.ToLocalTime().ToString('dd/MM/yyyy'))." } else { '' }
+    if ($reiniciar) { Add-Check 'Windows Update' 0xE895 'Reinicie para concluir' "Há atualizações instaladas esperando o PC reiniciar. $txtUltima" $amb 'wu' 'Abrir Windows Update' }
+    elseif ($pend.Count) { Add-Check 'Windows Update' 0xE895 "$($pend.Count) pendente(s)" "Ex.: $($pend[0] -replace '\s*\(KB\d+\).*$', ''). $txtUltima" $amb 'wu' 'Abrir Windows Update' }
+    elseif ($null -ne $dias -and $dias -gt 45) { Add-Check 'Windows Update' 0xE895 'Desatualizado' "Faz $dias dias sem instalar atualizações do Windows." $amb 'wu' 'Abrir Windows Update' }
+    elseif ($null -eq $pend) { Add-Check 'Windows Update' 0xE895 'Não verificado' "O Windows Update não respondeu agora. $txtUltima" $neutro 'wu' 'Abrir Windows Update' }
+    else { Add-Check 'Windows Update' 0xE895 'Em dia' "Nenhuma atualização pendente. $txtUltima" $CorOk }
+
+    # BitLocker no disco do sistema (lido pelo Explorer, sem precisar de administrador)
+    $bl = $null
+    try { $bl = (New-Object -ComObject Shell.Application).NameSpace("$env:SystemDrive\").Self.ExtendedProperty('System.Volume.BitLockerProtection') } catch {}
+    switch ("$bl") {
+        { $_ -in '1', '3', '6' } { Add-Check 'Criptografia (BitLocker)' 0xE72E 'Ativada' "Os arquivos do disco $env:SystemDrive ficam protegidos se o PC for perdido ou roubado." $CorOk; break }
+        '2' { Add-Check 'Criptografia (BitLocker)' 0xE72E 'Desativada' 'Quem tirar o disco consegue ler os arquivos. Muitas empresas exigem BitLocker, principalmente em notebooks.' $amb 'bitlocker' 'Abrir BitLocker'; break }
+        '4' { Add-Check 'Criptografia (BitLocker)' 0xE72E 'Sendo desfeita' 'O BitLocker está descriptografando o disco.' $amb; break }
+        '5' { Add-Check 'Criptografia (BitLocker)' 0xE72E 'Suspensa' 'A proteção está pausada (comum durante atualização de BIOS). Retome no Painel de Controle.' $amb 'bitlocker' 'Abrir BitLocker'; break }
+        default {
+            $det = if ($os.Caption -match 'Home') { 'O Windows Home não tem BitLocker (só a "Criptografia do dispositivo" em alguns notebooks).' } else { 'Não foi possível ler o estado da criptografia.' }
+            Add-Check 'Criptografia (BitLocker)' 0xE72E 'Indisponível' $det $neutro
+        }
+    }
+
+    # Inicialização segura (Secure Boot)
+    $sb = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State' -ErrorAction SilentlyContinue).UEFISecureBootEnabled
+    if ($sb -eq 1) { Add-Check 'Inicialização segura' 0xEA18 'Ativada' 'Só sistemas assinados dão a partida — protege contra vírus que se escondem antes do Windows.' $CorOk }
+    elseif ($sb -eq 0) { Add-Check 'Inicialização segura' 0xEA18 'Desativada' 'Ative no setup da BIOS/UEFI (seção Boot ou Security). O Windows 11 recomenda.' $amb }
+    else { Add-Check 'Inicialização segura' 0xEA18 'Não suportada' 'O PC dá a partida no modo antigo (Legacy/CSM).' $amb }
+
+    # TPM (o tpmtool não precisa de administrador; o texto vem no idioma do Windows, então só lemos a versão)
+    $tpm = ''
+    try { $tpm = & tpmtool getdeviceinformation 2>$null | Out-String } catch {}
+    $verTpm = [regex]::Match($tpm, 'TPM[^:\r\n]*:\s*(2\.0|1\.2)\s*$', 'Multiline').Groups[1].Value
+    if ($verTpm -eq '2.0') { Add-Check 'Chip de segurança (TPM)' 0xE950 'TPM 2.0' 'Usado pelo BitLocker, Windows Hello e exigido pelo Windows 11.' $CorOk }
+    elseif ($verTpm) { Add-Check 'Chip de segurança (TPM)' 0xE950 "TPM $verTpm" 'Versão antiga: o Windows 11 exige TPM 2.0.' $amb }
+    else { Add-Check 'Chip de segurança (TPM)' 0xE950 'Não encontrado' 'Ative o TPM na BIOS (aparece como fTPM, PTT ou Security Device). Necessário para o Windows 11 e o BitLocker.' $amb }
+
+    # Backup: pastas protegidas pelo OneDrive (e ponto de restauração, se der para ler)
+    $nuvens = @($env:OneDrive, $env:OneDriveCommercial, $env:OneDriveConsumer | Where-Object { $_ } | Select-Object -Unique)
+    $pastas = [ordered]@{ 'Área de Trabalho' = [Environment]::GetFolderPath('Desktop'); 'Documentos' = [Environment]::GetFolderPath('MyDocuments'); 'Imagens' = [Environment]::GetFolderPath('MyPictures') }
+    $com = @(); $sem = @()
+    foreach ($k in $pastas.Keys) {
+        $naNuvem = $false
+        foreach ($n in $nuvens) { if ($pastas[$k].StartsWith($n, [StringComparison]::OrdinalIgnoreCase)) { $naNuvem = $true } }
+        if ($naNuvem) { $com += $k } else { $sem += $k }
+    }
+    $restauracao = ''
+    if ($EhAdmin) {
+        try {
+            $rp = Get-ComputerRestorePoint -ErrorAction Stop | Sort-Object SequenceNumber -Descending | Select-Object -First 1
+            $restauracao = if ($rp) { ' Último ponto de restauração: {0:dd/MM/yyyy}.' -f [Management.ManagementDateTimeConverter]::ToDateTime($rp.CreationTime) } else { ' Nenhum ponto de restauração.' }
+        } catch {}
+    }
+    $odAberto = [bool](Get-Process OneDrive -ErrorAction SilentlyContinue)
+    if ($com.Count -and -not $odAberto) { Add-Check 'Backup dos arquivos' 0xE753 'OneDrive fechado' "As pastas estão no OneDrive, mas ele não está aberto: nada está sendo copiado agora.$restauracao" $amb 'onedrive' 'Abrir OneDrive' }
+    elseif (-not $sem.Count) { Add-Check 'Backup dos arquivos' 0xE753 'Protegido pelo OneDrive' "Área de Trabalho, Documentos e Imagens têm cópia na nuvem.$restauracao" $CorOk }
+    elseif ($com.Count) { Add-Check 'Backup dos arquivos' 0xE753 'Backup parcial' ("Com cópia: {0}. Sem cópia: {1}.{2}" -f ($com -join ', '), ($sem -join ', '), $restauracao) $amb 'backup' 'Configurar backup' }
+    else { Add-Check 'Backup dos arquivos' 0xE753 'Sem cópia na nuvem' "Se o disco falhar, os arquivos se perdem. Ative o backup de pastas do OneDrive ou use um HD externo.$restauracao" $amb 'backup' 'Configurar backup' }
+
+    [pscustomobject]@{ Ficha = $ficha.ToArray(); Checks = $checks.ToArray(); Hora = Get-Date }
+}
+
+$script:Inventario = $null
+$script:invJob = $null
+function Start-Inventario {
+    if ($script:invJob) { return }
+    $ui.btnInvAtualizar.IsEnabled = $false
+    $ui.txtInvInfo.Text = 'Verificando... a consulta ao Windows Update pode levar 1 a 2 minutos.'
+    # STA: o BitLocker é lido pelo Shell do Windows, que só funciona nesse modo
+    $rs = [runspacefactory]::CreateRunspace(); $rs.ApartmentState = 'STA'; $rs.Open()
+    $ps = [powershell]::Create(); $ps.Runspace = $rs
+    [void]$ps.AddScript($ScriptInventario).AddArgument($Cor.Lima).AddArgument($EhAdmin)
+    $script:invJob = @{ Ps = $ps; Rs = $rs; Handle = $ps.BeginInvoke() }
+    $timerInv.Start()
+}
+
+function Show-Inventario($r) {
+    $script:Inventario = $r
+    $ui.icConformidade.ItemsSource = @($r.Checks)
+    $ui.icFicha.ItemsSource = @($r.Ficha)
+    $atencao = @($r.Checks | Where-Object { $_.Nivel -in 'Atenção', 'Crítico' }).Count
+    $ui.txtInvInfo.Text = 'Verificado às {0:HH:mm} · {1}' -f $r.Hora, $(if ($atencao) { "$atencao ponto(s) de atenção" } else { 'tudo em conformidade' })
+}
+
+$timerInv = New-Object Windows.Threading.DispatcherTimer
+$timerInv.Interval = [TimeSpan]::FromMilliseconds(500)
+$timerInv.add_Tick({
+    $j = $script:invJob
+    if (-not $j -or -not $j.Handle.IsCompleted) { return }
+    $timerInv.Stop()
+    try { Show-Inventario ($j.Ps.EndInvoke($j.Handle) | Select-Object -Last 1) }
+    catch { $ui.txtInvInfo.Text = "Erro na verificação: $($_.Exception.Message)" }
+    finally { $j.Ps.Dispose(); $j.Rs.Dispose(); $script:invJob = $null; $ui.btnInvAtualizar.IsEnabled = $true }
+})
+
+$ui.btnInvAtualizar.add_Click({ Start-Inventario })
+$ui.icConformidade.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($s, $e)
+    if ($e.OriginalSource -isnot [Windows.Controls.Button]) { return }
+    switch ($e.OriginalSource.Tag) {
+        'ativacao'  { Start-Process 'ms-settings:activation' }
+        'wu'        { Start-Process 'ms-settings:windowsupdate' }
+        'bitlocker' { Start-Process control.exe '/name Microsoft.BitLockerDriveEncryption' }
+        'backup'    { Start-Process 'ms-settings:backup' }
+        'onedrive'  {
+            $od = @("$env:LOCALAPPDATA\Microsoft\OneDrive\OneDrive.exe", "${env:ProgramFiles}\Microsoft OneDrive\OneDrive.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if ($od) { Start-Process $od }
+        }
+    }
+})
+$ui.btnInvCopiar.add_Click({
+    $r = $script:Inventario
+    if (-not $r) { return }
+    $txt = @("Ficha do computador — {0:dd/MM/yyyy HH:mm}" -f $r.Hora, '')
+    $txt += @($r.Ficha | ForEach-Object { "$($_.Rotulo): $($_.Valor)" })
+    $txt += @('', 'Conformidade')
+    $txt += @($r.Checks | ForEach-Object { "$($_.Titulo): $($_.Status) — $($_.Detalhe)" })
+    [Windows.Clipboard]::SetText($txt -join "`r`n")
+    $ui.txtInvInfo.Text = 'Ficha copiada. Cole num e-mail ou chamado para o TI.'
+})
+
+# ---- Relatório do PC (HTML pronto para imprimir ou salvar em PDF) ----
+$PastaRelatorios = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Relatórios do Monitor PC'
+$script:RelatorioDesde = $null
+
+function Start-Relatorio {
+    if ($script:RelatorioDesde) { return }
+    # Junta o que ainda não foi lido nesta sessão; o relatório sai quando tudo terminar (ou em até 2,5 min)
+    if (-not $ui.icVida.ItemsSource) { Start-Analise }
+    if (-not $script:ErrosCarregados) { Start-Erros }
+    if (-not $script:Inventario) { Start-Inventario }
+    if (-not $script:UltimaSeguranca) { Start-Seguranca }
+    $script:RelatorioDesde = Get-Date
+    $ui.btnRelatorio.IsEnabled = $false
+    $timerRelatorio.Start()
+}
+
+$timerRelatorio = New-Object Windows.Threading.DispatcherTimer
+$timerRelatorio.Interval = [TimeSpan]::FromMilliseconds(500)
+$timerRelatorio.add_Tick({
+    $falta = @()
+    if ($script:analise) { $falta += 'vida útil' }
+    if ($script:errosJob) { $falta += 'travamentos' }
+    if ($script:invJob) { $falta += 'inventário e Windows Update' }
+    if ($script:seg) { $falta += 'segurança' }
+    if ($falta.Count -and ((Get-Date) - $script:RelatorioDesde).TotalSeconds -lt 150) {
+        $ui.txtRelatorioInfo.Text = "Montando o relatório... aguardando: $($falta -join ', ')."
+        return
+    }
+    $timerRelatorio.Stop()
+    $script:RelatorioDesde = $null
+    $ui.btnRelatorio.IsEnabled = $true
+    try {
+        $arq = Write-Relatorio
+        $ui.txtRelatorioInfo.Text = "Relatório salvo em Documentos > Relatórios do Monitor PC ($([IO.Path]::GetFileName($arq))). Para PDF, use Imprimir > Salvar como PDF."
+        Start-Process $arq
+    } catch {
+        $ui.txtRelatorioInfo.Text = "Não foi possível gerar o relatório: $($_.Exception.Message)"
+    }
+})
+$ui.btnRelatorio.add_Click({ Start-Relatorio })
+
+function Write-Relatorio {
+    # (não pode se chamar H: é o atalho do Get-History)
+    function Enc($s) { [Net.WebUtility]::HtmlEncode([string]$s) }
+    # Classe de cor no relatório a partir da cor usada na tela
+    function Get-Classe($hex, $nivel) {
+        if ($nivel -eq 'Crítico' -or $hex -eq $Cor.Vermelho) { 'ruim' } elseif ($nivel -eq 'Atenção' -or $hex -eq $Cor.Ambar) { 'atencao' }
+        elseif ($hex -eq $Cor.Lima -or $hex -eq $Cor.Estimado -or $nivel -eq 'OK') { 'ok' } else { 'neutro' }
+    }
+    function Tabela($cab, $linhas) {
+        '<table><tr>' + (($cab | ForEach-Object { "<th>$(Enc $_)</th>" }) -join '') + '</tr>' + ($linhas -join '') + '</table>'
+    }
+    $agora = Get-Date
+    $sb = New-Object Text.StringBuilder
+    $add = { param($t) [void]$sb.AppendLine($t) }
+
+    $css = @'
+body{font-family:"Segoe UI",Arial,sans-serif;color:#1f2430;margin:0;background:#f4f5f7}
+.pagina{max-width:960px;margin:0 auto;background:#fff;padding:36px 44px}
+h1{font-size:26px;margin:0}h2{font-size:18px;margin:30px 0 10px;padding-bottom:6px;border-bottom:2px solid #e3e5ea}
+.sub{color:#6b7080;font-size:13px;margin-top:4px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:20px}
+.card{border:1px solid #e3e5ea;border-radius:10px;padding:12px 14px}.card b{display:block;font-size:20px;margin-top:4px}
+.card span{color:#6b7080;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;background:#f0f1f4;padding:7px 9px}
+td{padding:7px 9px;border-bottom:1px solid #eceef2;vertical-align:top}
+.ok{color:#16803c;font-weight:600}.atencao{color:#b36b00;font-weight:600}.ruim{color:#c62828;font-weight:600}.neutro{color:#6b7080;font-weight:600}
+.nota{color:#6b7080;font-size:12px;margin-top:6px}
+button{margin-top:16px;padding:9px 18px;border:0;border-radius:8px;background:#1f2430;color:#fff;font-size:14px;cursor:pointer}
+@media print{body{background:#fff}.pagina{padding:0}button{display:none}h2{break-after:avoid}tr{break-inside:avoid}}
+'@
+    & $add "<!doctype html><html lang=`"pt-BR`"><head><meta charset=`"utf-8`"><title>Relatório do PC — $(Enc $env:COMPUTERNAME)</title><style>$css</style></head><body><div class=`"pagina`">"
+    & $add "<h1>Relatório do PC — $(Enc $env:COMPUTERNAME)</h1>"
+    & $add "<div class=`"sub`">Gerado em $($agora.ToString('dd/MM/yyyy')) às $($agora.ToString('HH:mm')) pelo Monitor PC $VersaoApp</div>"
+    & $add '<button onclick="window.print()">Imprimir ou salvar em PDF</button>'
+
+    # Resumo
+    $up = $agora - $HoraBoot
+    $segTxt = if ($script:UltimaSeguranca) { $ui.txtSegMini.Text } else { 'não verificada' }
+    $conf = if ($script:Inventario) { $n = @($script:Inventario.Checks | Where-Object { $_.Nivel -in 'Atenção', 'Crítico' }).Count; if ($n) { "$n ponto(s) de atenção" } else { 'em conformidade' } } else { 'não verificada' }
+    $graves = if ($script:UltimosErros) { @($script:UltimosErros.Itens | Where-Object { $_.Cat -in 'tela_azul', 'desligou', 'hardware', 'disco' }).Count } else { $null }
+    & $add '<div class="cards">'
+    & $add "<div class=`"card`"><span>Saúde agora</span><b>$(Enc $ui.txtSaudeNum.Text) · $(Enc $ui.txtSaudeRot.Text)</b></div>"
+    & $add "<div class=`"card`"><span>Segurança</span><b>$(Enc $segTxt)</b></div>"
+    & $add "<div class=`"card`"><span>Conformidade</span><b>$(Enc $conf)</b></div>"
+    & $add "<div class=`"card`"><span>Problemas graves (travamentos)</span><b>$(if ($null -ne $graves) { $graves } else { '--' })</b></div>"
+    & $add '</div>'
+
+    if ($script:Inventario) {
+        & $add '<h2>Ficha do computador</h2>'
+        & $add (Tabela @('Item', 'Valor') @($script:Inventario.Ficha | ForEach-Object { "<tr><td>$(Enc $_.Rotulo)</td><td>$(Enc $_.Valor)</td></tr>" }))
+        & $add '<h2>Conformidade</h2>'
+        & $add (Tabela @('Item', 'Situação', 'Detalhe') @($script:Inventario.Checks | ForEach-Object {
+            "<tr><td>$(Enc $_.Titulo)</td><td class=`"$(Get-Classe $_.Cor $_.Nivel)`">$(Enc $_.Status)</td><td>$(Enc $_.Detalhe)</td></tr>" }))
+    }
+
+    & $add '<h2>Uso nos últimos 2 minutos</h2>'
+    $linhas = @(
+        "<tr><td>Processador</td><td>média {0:N0}% · pico {1:N0}%</td></tr>" -f ($Hist.Cpu | Measure-Object -Average).Average, ($Hist.Cpu | Measure-Object -Maximum).Maximum
+        "<tr><td>Memória RAM</td><td>média {0:N0}% · pico {1:N0}% de {2:N0} GB</td></tr>" -f ($Hist.Ram | Measure-Object -Average).Average, ($Hist.Ram | Measure-Object -Maximum).Maximum, ($infoPc.TotalPhysicalMemory / 1GB)
+        "<tr><td>Ligado há</td><td>$($up.Days) d $($up.Hours) h $($up.Minutes) min</td></tr>"
+    )
+    foreach ($d in [IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' -and $_.IsReady }) {
+        $livre = $d.AvailableFreeSpace / $d.TotalSize * 100
+        $cls = if ($livre -lt $Config.EspacoMinimo) { 'ruim' } elseif ($livre -lt 20) { 'atencao' } else { 'ok' }
+        $linhas += "<tr><td>Disco $(Enc $d.Name.TrimEnd('\'))</td><td class=`"$cls`">{0} livres de {1} ({2:N0}%)</td></tr>" -f (Format-Tamanho $d.AvailableFreeSpace), (Format-Tamanho $d.TotalSize), $livre
+    }
+    & $add (Tabela @('Item', 'Valor') $linhas)
+
+    if ($script:UltimaSeguranca) {
+        $r = $script:UltimaSeguranca
+        & $add '<h2>Segurança</h2>'
+        & $add (Tabela @('Item', 'Situação', 'Detalhe') @($r.Protecao | ForEach-Object {
+            "<tr><td>$(Enc $_.Titulo)</td><td class=`"$(Get-Classe $_.Cor $_.Nivel)`">$(Enc $_.Status)</td><td>$(Enc $_.Detalhe)</td></tr>" }))
+        if (@($r.Achados).Count) {
+            & $add '<p class="nota">Processos suspeitos encontrados:</p>'
+            & $add (Tabela @('Achado', 'Gravidade', 'Arquivo') @($r.Achados | ForEach-Object {
+                "<tr><td>$(Enc $_.Titulo)<div class=`"nota`">$(Enc $_.Motivo)</div></td><td class=`"$(Get-Classe $_.Cor $_.Severidade)`">$(Enc $_.Severidade)</td><td>$(Enc $_.Caminho)</td></tr>" }))
+        } else {
+            & $add "<p class=`"nota`">Nenhum processo suspeito entre $($r.Verificados) programas conferidos.</p>"
+        }
+    }
+
+    if ($ui.icVida.ItemsSource) {
+        & $add '<h2>Vida útil das peças</h2>'
+        & $add (Tabela @('Peça', 'Modelo', 'Saúde', 'Detalhes') @($ui.icVida.ItemsSource | ForEach-Object {
+            "<tr><td>$(Enc $_.Componente)</td><td>$(Enc $_.Modelo)</td><td class=`"$(Get-Classe $_.Cor '')`">$(if ($_.Componente -eq 'Windows') { '—' } else { Enc $_.SaudeTexto })</td><td>$(Enc $_.Detalhes)<div class=`"nota`">$(Enc $_.Observacao)</div></td></tr>" }))
+        & $add '<p class="nota">"est." = estimativa pela idade da peça (CPU, RAM, placa de vídeo, placa-mãe e fonte não informam desgaste).</p>'
+    }
+
+    if (Test-Path $TestesDiscoPath) {
+        $t = Get-Content $TestesDiscoPath -Encoding UTF8 -ErrorAction SilentlyContinue | Where-Object { $_ } | Select-Object -Last 1 | ForEach-Object { try { $_ | ConvertFrom-Json } catch {} }
+        if ($t) {
+            & $add '<h2>Último teste de velocidade do disco</h2>'
+            & $add (Tabela @('Disco', 'Leitura', 'Gravação', 'Leitura aleatória', 'Resposta', 'Data') @(
+                "<tr><td>$(Enc "$($t.Letra): $($t.Nome)")</td><td>$(Format-Velocidade2 $t.Leitura)</td><td>$(Format-Velocidade2 $t.Gravacao)</td><td>$(Format-Velocidade2 $t.Aleatoria)</td><td>$('{0:N2} ms' -f $t.Latencia)</td><td>$(([datetime]$t.Data).ToString('dd/MM/yyyy'))</td></tr>"))
+        }
+    }
+
+    if ($script:UltimosErros) {
+        $itens = @($script:UltimosErros.Itens)
+        & $add "<h2>Travamentos e erros (últimos $($script:UltimosErros.Dias) dias)</h2>"
+        & $add (Tabela @('Tipo', 'Quantidade', 'Último') @(foreach ($k in $CategoriasErro.Keys) {
+            $doTipo = @($itens | Where-Object { $_.Cat -eq $k -or ($k -eq 'app' -and $_.Cat -eq 'trava') })
+            $cls = if (-not $doTipo.Count) { 'ok' } elseif ($k -eq 'app') { 'atencao' } else { 'ruim' }
+            "<tr><td>$(Enc $CategoriasErro[$k].Titulo)</td><td class=`"$cls`">$($doTipo.Count)</td><td>$(if ($doTipo.Count) { $doTipo[0].Data.ToString('dd/MM/yyyy HH:mm') } else { '—' })</td></tr>" }))
+        $graves = @($itens | Where-Object { $_.Cat -ne 'app' -and $_.Cat -ne 'trava' } | Select-Object -First 10)
+        if ($graves.Count) {
+            & $add '<p class="nota">Ocorrências mais recentes:</p>'
+            & $add (Tabela @('Quando', 'O que aconteceu', 'O que fazer') @($graves | ForEach-Object { "<tr><td>$($_.Data.ToString('dd/MM HH:mm'))</td><td>$(Enc $_.Titulo)</td><td>$(Enc $_.Dica)</td></tr>" }))
+        }
+    }
+
+    if (@($script:Updates).Count) {
+        & $add "<h2>Programas com atualização disponível ($(@($script:Updates).Count))</h2>"
+        & $add (Tabela @('Programa', 'Versão instalada', 'Nova versão') @($script:Updates | Select-Object -First 40 | ForEach-Object { "<tr><td>$(Enc $_.Nome)</td><td>$(Enc $_.Versao)</td><td>$(Enc $_.Nova)</td></tr>" }))
+    }
+
+    if (Test-Path $ChamadasPath) {
+        $ch = @(Get-Content $ChamadasPath -Encoding UTF8 -ErrorAction SilentlyContinue | Where-Object { $_ } | Select-Object -Last 10 | ForEach-Object { try { $_ | ConvertFrom-Json } catch {} })
+        if ($ch.Count) {
+            [array]::Reverse($ch)
+            & $add '<h2>Últimas chamadas</h2>'
+            & $add (Tabela @('Quando', 'Programa', 'Duração', 'Ping', 'Perda', 'CPU máx.') @($ch | ForEach-Object {
+                "<tr><td>$(([datetime]::Parse($_.Inicio)).ToString('dd/MM HH:mm'))</td><td>$(Enc $_.App)</td><td>$('{0:N0} min' -f $_.Minutos)</td><td>$(if ($null -ne $_.PingMedio) { "$($_.PingMedio) ms" } else { '--' })</td><td class=`"$(if ($_.PerdaPct -ge 2) { 'ruim' } elseif ($_.PerdaPct -gt 0) { 'atencao' } else { 'ok' })`">$($_.PerdaPct)%</td><td>$($_.CpuMax)%</td></tr>" }))
+        }
+    }
+
+    $alertas = @($ui.lbHist.Items | Select-Object -First 10)
+    if ($alertas.Count) {
+        & $add '<h2>Alertas recentes</h2>'
+        & $add (Tabela @('Alerta') @($alertas | ForEach-Object { "<tr><td>$(Enc $_)</td></tr>" }))
+    }
+
+    & $add '<p class="nota" style="margin-top:30px">Relatório gerado localmente pelo Monitor PC. Nenhuma informação foi enviada para a internet.</p>'
+    & $add '</div></body></html>'
+
+    if (-not (Test-Path $PastaRelatorios)) { New-Item -ItemType Directory -Path $PastaRelatorios | Out-Null }
+    $arq = Join-Path $PastaRelatorios ('Relatório {0} {1:yyyy-MM-dd HH\hmm}.html' -f $env:COMPUTERNAME, $agora)
+    [IO.File]::WriteAllText($arq, $sb.ToString(), (New-Object Text.UTF8Encoding $true))
+    $arq
+}
+#endregion
+
 #region Configurações na tela
-$AtalhoInicio = Join-Path ([Environment]::GetFolderPath('Startup')) 'Monitor PC.lnk'
+$AtalhoInicio =Join-Path ([Environment]::GetFolderPath('Startup')) 'Monitor PC.lnk'
 
 function Show-Config {
     $ui.chkAlertas.IsChecked = [bool]$Config.AlertasAtivos
@@ -6278,9 +7141,9 @@ $ui.btnAnalisar.add_Click({
 })
 
 # Menu lateral: cada item troca a aba (índice na ordem do menu)
-$Menu = @($ui.mnPainel, $ui.mnProc, $ui.mnAlertas, $ui.mnVida, $ui.mnOtim, $ui.mnSeg, $ui.mnApps, $ui.mnJogos, $ui.mnEspaco, $ui.mnErros, $ui.mnLimpeza)
+$Menu = @($ui.mnPainel, $ui.mnProc, $ui.mnAlertas, $ui.mnVida, $ui.mnOtim, $ui.mnSeg, $ui.mnApps, $ui.mnJogos, $ui.mnEspaco, $ui.mnErros, $ui.mnLimpeza, $ui.mnTrab)
 # Índice da aba (ordem no XAML) de cada item do menu; 7 = Aparência, que não tem item no menu
-$AbaDoMenu = @{ mnPainel = 0; mnProc = 1; mnAlertas = 2; mnVida = 3; mnOtim = 4; mnSeg = 5; mnApps = 6; mnJogos = 8; mnEspaco = 9; mnErros = 10; mnLimpeza = 11 }
+$AbaDoMenu = @{ mnPainel = 0; mnProc = 1; mnAlertas = 2; mnVida = 3; mnOtim = 4; mnSeg = 5; mnApps = 6; mnJogos = 8; mnEspaco = 9; mnErros = 10; mnLimpeza = 11; mnTrab = 12 }
 function Select-Aba([int]$i) {
     foreach ($m in $Menu) { if ($AbaDoMenu[$m.Name] -eq $i) { $m.IsChecked = $true } }
 }
@@ -6297,10 +7160,18 @@ for ($i = 0; $i -lt $Menu.Count; $i++) {
         if ($idx -eq 9 -and -not $ui.spEspacoDiscos.Children.Count) { Update-DiscosEspaco }
         if ($idx -eq 10 -and -not $script:ErrosCarregados) { Start-Erros }
         if ($idx -eq 11 -and -not $script:LimpezaAnalisada) { Start-AnaliseLimpeza }
+        if ($idx -eq 12) {
+            if (-not $script:Inventario -and -not $script:invJob) { Start-Inventario }
+            if (-not $ui.wpReuniaoFechar.Children.Count) { Update-ListaReuniao }
+        }
     })
 }
 $ui.btnVerTodos.add_Click({ Select-Aba 1 })
-$ui.btnDica.add_Click({ if ($script:DicaGuia) { Show-Guia $script:DicaGuia } else { Select-Aba 4 } })
+$ui.btnDica.add_Click({
+    if ($script:DicaGuia -eq 'relatorio') { Select-Aba 12 }
+    elseif ($script:DicaGuia) { Show-Guia $script:DicaGuia }
+    else { Select-Aba 4 }
+})
 $ui.btnSino.add_Click({ Select-Aba 2 })
 $ui.btnSegMini.add_Click({ Select-Aba 5 })
 
@@ -6367,6 +7238,7 @@ function Exit-App {
     $GpuSync.Rodando = $false
     $PingSync.Rodando = $false
     try { Stop-SessaoJogo; Disable-ModoJogo } catch {}   # salva a sessão e devolve o PC ao normal
+    try { Stop-Reuniao } catch {}
     try { $Overlay.Close() } catch {}
     Stop-Fps
     Remove-IconeBandeja
@@ -6417,6 +7289,9 @@ $window.add_Closing({
 
 Show-Config
 $script:CarregandoConfig = $false
+# Primeira vez (ou vindo de uma versão sem perfis): pergunta Gamer ou Profissional
+if (-not $Config.Perfil) { $ui.gdBoasVindas.Visibility = 'Visible' }
+Update-Perfil
 # Prioridade Normal: a leitura nunca fica esperando na fila atrás do desenho da tela
 $timer = New-Object Windows.Threading.DispatcherTimer([Windows.Threading.DispatcherPriority]::Normal)
 $timer.Interval = [TimeSpan]::FromSeconds($Intervalo)

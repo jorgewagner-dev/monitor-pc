@@ -20,6 +20,24 @@ COMO ABRIR
    Na primeira vez, o Monitor cria sozinho o arquivo "Monitor PC.exe" na pasta:
    é ele que aparece com nome e ícone em Configurações > Inicialização.
 
+PERFIL: GAMER OU PROFISSIONAL
+-----------------------------
+Na primeira vez o Monitor pergunta como você usa o PC (dá para trocar depois na
+Aparência, pelo botão de paleta no topo):
+- Gamer: aba Jogos e FPS (FPS, Modo Jogo, ping e sessões de jogo).
+- Profissional: aba Trabalho, sem as funções de jogo, com:
+  * Modo Reunião: quando um programa começa a usar o microfone (Teams, Zoom, Meet
+    no navegador...), o Monitor pausa o Windows Update e os downloads em segundo
+    plano (como admin), fecha os programas que você marcar (OneDrive, Dropbox...),
+    silencia os alertas comuns e avisa se a internet ou o PC puserem a chamada em
+    risco. Tudo volta ao normal quando a chamada termina.
+  * Inventário e conformidade: licença do Windows, Windows Update, BitLocker,
+    inicialização segura, TPM e backup, além da ficha do PC (modelo, número de
+    série, IP...). O botão "Copiar ficha" copia tudo para colar num chamado.
+  * Relatório do PC: gera um arquivo em Documentos > Relatórios do Monitor PC com
+    ficha, conformidade, segurança, vida útil, travamentos e atualizações. Para
+    PDF, abra e use Imprimir > Salvar como PDF.
+
 DICAS
 -----
 - Fechar a janela deixa o Monitor rodando na bandeja (perto do relógio).
