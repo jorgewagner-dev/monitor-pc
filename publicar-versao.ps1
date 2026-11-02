@@ -35,10 +35,10 @@ $info = [ordered]@{
 }
 [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'versao.json'), ($info | ConvertTo-Json), (New-Object Text.UTF8Encoding $false))
 
-Compress-Archive -Path $arq, (Join-Path $PSScriptRoot 'Iniciar Monitor PC.bat'), (Join-Path $PSScriptRoot 'LEIA-ME.txt') `
+Compress-Archive -Path $arq, (Join-Path $PSScriptRoot 'Iniciar Monitor PC.bat'), (Join-Path $PSScriptRoot 'LEIA-ME.txt'), (Join-Path $PSScriptRoot 'Manual do Monitor PC.docx') `
     -DestinationPath (Join-Path $PSScriptRoot 'MonitorPC.zip') -Force
 
-git add MonitorPC.ps1 versao.json LEIA-ME.txt 'Iniciar Monitor PC.bat' README.md publicar-versao.ps1 .gitignore .gitattributes
+git add MonitorPC.ps1 versao.json LEIA-ME.txt 'Iniciar Monitor PC.bat' 'Manual do Monitor PC.docx' README.md publicar-versao.ps1 .gitignore .gitattributes
 git commit -m "Versão $Versao$(if ($Notas) { ": $Notas" })"
 git tag "v$Versao"
 git push origin main --tags

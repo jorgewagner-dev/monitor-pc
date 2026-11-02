@@ -3,7 +3,8 @@ MONITOR PC
 
 Painel para acompanhar CPU, RAM, disco e rede do PC em tempo real, com alertas,
 vida útil das peças e comandos de otimização. Funciona no Windows 10 e 11, sem
-instalar nada.
+instalar nada. O passo a passo completo, com imagens de cada tela, está no arquivo
+"Manual do Monitor PC.docx".
 
 COMO ABRIR
 ----------
