@@ -32,7 +32,7 @@ $EventoMostrar = New-Object System.Threading.EventWaitHandle($false, 'AutoReset'
 #endregion
 
 $AppNome   = 'Monitor PC'
-$VersaoApp = '2.8.0'
+$VersaoApp = '2.9.0'
 # Endereço do arquivo versao.json publicado (vazio = atualização automática desligada)
 $UrlAtualizacaoPadrao = 'https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/main/versao.json'
 $Intervalo = 1      # segundos entre leituras
@@ -902,6 +902,7 @@ $XamlTexto = @'
             <RadioButton x:Name="mnLimpeza" Style="{StaticResource Menu}" Tag="&#xE74D;" Content="Limpeza inteligente"/>
             <RadioButton x:Name="mnAlertas" Style="{StaticResource Menu}" Tag="&#xEA8F;" Content="Alertas"/>
             <RadioButton x:Name="mnVida" Style="{StaticResource Menu}" Tag="&#xE95E;" Content="Vida útil"/>
+            <RadioButton x:Name="mnHw" Style="{StaticResource Menu}" Tag="&#xE950;" Content="Hardware e drivers"/>
             <RadioButton x:Name="mnErros" Style="{StaticResource Menu}" Tag="&#xE7BA;" Content="Travamentos"/>
             <RadioButton x:Name="mnSeg" Style="{StaticResource Menu}" Tag="&#xEA18;" Content="Segurança"/>
             <RadioButton x:Name="mnOtim" Style="{StaticResource Menu}" Tag="&#xEC4A;" Content="Otimizar"/>
@@ -2664,6 +2665,81 @@ $XamlTexto = @'
               </StackPanel>
             </ScrollViewer>
           </TabItem>
+
+          <!-- ===================== HARDWARE E DRIVERS ===================== -->
+          <TabItem>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="14,0,14,14">
+              <StackPanel>
+                <Border Style="{StaticResource Card}" Padding="22,16">
+                  <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                      <Border Style="{StaticResource Chip}" Margin="0,0,12,0">
+                        <TextBlock x:Name="txtClockAgora" FontSize="12" Text="Processador agora: --"/>
+                      </Border>
+                      <Button x:Name="btnHwCopiar" Style="{StaticResource BtnSecundario}" Content="Copiar ficha técnica" Margin="0,0,10,0"/>
+                      <Button x:Name="btnDrvProcurar" Content="Procurar drivers"/>
+                    </StackPanel>
+                    <StackPanel>
+                      <TextBlock Text="Hardware e drivers" FontSize="22" FontWeight="SemiBold"/>
+                      <TextBlock Style="{StaticResource Suave}" TextWrapping="Wrap"
+                                 Text="Drivers desatualizados ou com problema e a ficha técnica completa de cada peça."/>
+                    </StackPanel>
+                  </DockPanel>
+                </Border>
+
+                <!-- Drivers -->
+                <Border Style="{StaticResource Card}" Padding="22,16">
+                  <StackPanel>
+                    <DockPanel>
+                      <Button x:Name="btnDrvGerenciador" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="Abrir Gerenciador de Dispositivos" VerticalAlignment="Center"/>
+                      <StackPanel>
+                        <TextBlock x:Name="txtDrvTitulo" Text="Drivers" Style="{StaticResource TituloCard}"/>
+                        <TextBlock x:Name="txtDrvInfo" Style="{StaticResource Suave}" TextWrapping="Wrap"
+                                   Text="Confere os drivers das peças principais e procura versões novas no Windows Update (fonte oficial da Microsoft e dos fabricantes)."/>
+                      </StackPanel>
+                    </DockPanel>
+                    <ItemsControl x:Name="icDrivers" Margin="0,10,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Background="#141416" CornerRadius="12" Padding="14,10" Margin="0,4">
+                            <DockPanel>
+                              <Button DockPanel.Dock="Right" Content="{Binding AcaoTexto}" Tag="{Binding Acao}" Visibility="{Binding AcaoVisivel}"
+                                      Style="{StaticResource BtnSecundario}" Padding="12,5" FontSize="12" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                              <Border DockPanel.Dock="Right" CornerRadius="8" Padding="10,3" Background="{Binding CorFundo}" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Situacao}" Foreground="{Binding Cor}" FontSize="11" FontWeight="SemiBold"/>
+                              </Border>
+                              <Border Style="{StaticResource Bolha}" DockPanel.Dock="Left" Margin="0,0,12,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Glifo}" Style="{StaticResource Icone}" Foreground="{Binding Cor}"/>
+                              </Border>
+                              <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Sub}" Foreground="#8E8E96" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding Detalhe}" Foreground="#C8C8CE" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                              </StackPanel>
+                            </DockPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Style="{StaticResource Suave}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="Antes de atualizar drivers importantes (vídeo, chipset), crie um ponto de restauração na aba Otimizar. Driver de vídeo para jogos: prefira o app do fabricante (NVIDIA App, AMD Adrenalin, Intel Graphics)."/>
+                  </StackPanel>
+                </Border>
+
+                <!-- Ficha técnica (estilo CPU-Z) -->
+                <DockPanel Margin="10,16,10,4">
+                  <TextBlock x:Name="txtHwInfo" DockPanel.Dock="Right" Style="{StaticResource Suave}" VerticalAlignment="Center"/>
+                  <TextBlock Text="Ficha técnica" FontSize="18" FontWeight="SemiBold"/>
+                </DockPanel>
+                <ItemsControl x:Name="icFichaHw">
+                  <!-- Os cartões são montados no código (Show-FichaHw): lista dentro de lista não se liga bem a objetos do PowerShell -->
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
         </TabControl>
       </Grid>
 
@@ -3289,6 +3365,7 @@ function Update-Tela {
         $ui.btnDica.Content = if ($script:DicaGuia -eq 'relatorio') { 'Ir para Trabalho  →' } elseif ($script:DicaGuia) { 'Ver solução  →' } else { 'Ir para Otimizar  →' }
 
         Update-Reuniao $cpu $c1
+        if ($ui.tabs.SelectedIndex -eq 13) { Update-ClockAgora $cpu }
 
         # Alertas (numa chamada, o Modo Reunião pode silenciar os comuns)
         if ($Config.AlertasAtivos -and -not ($script:Reuniao -and $Config.ReuniaoSilenciar)) {
@@ -6868,6 +6945,8 @@ function Start-Relatorio {
     if (-not $script:ErrosCarregados) { Start-Erros }
     if (-not $script:Inventario) { Start-Inventario }
     if (-not $script:UltimaSeguranca) { Start-Seguranca }
+    if (-not $script:FichaHw) { Start-FichaHw }
+    if (-not $script:Drivers) { Start-Drivers }
     $script:RelatorioDesde = Get-Date
     $ui.btnRelatorio.IsEnabled = $false
     $timerRelatorio.Start()
@@ -6881,6 +6960,8 @@ $timerRelatorio.add_Tick({
     if ($script:errosJob) { $falta += 'travamentos' }
     if ($script:invJob) { $falta += 'inventário e Windows Update' }
     if ($script:seg) { $falta += 'segurança' }
+    if ($script:hwJob) { $falta += 'ficha técnica' }
+    if ($script:drvJob) { $falta += 'drivers' }
     if ($falta.Count -and ((Get-Date) - $script:RelatorioDesde).TotalSeconds -lt 150) {
         $ui.txtRelatorioInfo.Text = "Montando o relatório... aguardando: $($falta -join ', ')."
         return
@@ -6951,6 +7032,21 @@ button{margin-top:16px;padding:9px 18px;border:0;border-radius:8px;background:#1
         & $add '<h2>Conformidade</h2>'
         & $add (Tabela @('Item', 'Situação', 'Detalhe') @($script:Inventario.Checks | ForEach-Object {
             "<tr><td>$(Enc $_.Titulo)</td><td class=`"$(Get-Classe $_.Cor $_.Nivel)`">$(Enc $_.Status)</td><td>$(Enc $_.Detalhe)</td></tr>" }))
+    }
+
+    if ($script:FichaHw) {
+        & $add '<h2>Ficha técnica</h2>'
+        & $add (Tabela @('Peça', 'Item', 'Valor') @(foreach ($sec in $script:FichaHw.Secoes) {
+            foreach ($l in $sec.Linhas) {
+                "<tr><td>$(Enc $sec.Titulo)</td><td>$(Enc $l.Rotulo)</td><td class=`"$(if ($l.Cor -eq $Cor.Ambar) { 'atencao' })`">$(Enc $l.Valor)</td></tr>"
+            } }))
+    }
+
+    if ($script:Drivers) {
+        & $add '<h2>Drivers</h2>'
+        & $add (Tabela @('Dispositivo', 'Situação', 'Detalhe') @($script:Drivers.Itens | ForEach-Object {
+            $cls = if ($_.Ordem -eq 3) { 'ok' } elseif ($_.Cor -eq $Cor.Vermelho) { 'ruim' } else { 'atencao' }
+            "<tr><td>$(Enc $_.Nome)<div class=`"nota`">$(Enc $_.Sub)</div></td><td class=`"$cls`">$(Enc $_.Situacao)</td><td>$(Enc $_.Detalhe)</td></tr>" }))
     }
 
     & $add '<h2>Uso nos últimos 2 minutos</h2>'
@@ -7041,8 +7137,385 @@ button{margin-top:16px;padding:9px 18px;border:0;border-radius:8px;background:#1
 }
 #endregion
 
+#region Hardware e drivers
+# ---- Ficha técnica (no estilo do CPU-Z), lida do Windows sem precisar de administrador ----
+$ScriptFichaHw = {
+    $secoes = New-Object System.Collections.Generic.List[object]
+    $amb = '#FFB020'; $normal = '#F2F2F5'
+    function New-Secao($titulo, $glifo) {
+        $s = [pscustomobject]@{ Titulo = $titulo; Glifo = [string][char]$glifo; Linhas = (New-Object System.Collections.Generic.List[object]) }
+        $secoes.Add($s); $s
+    }
+    function Add-Linha($secao, $rotulo, $valor, $cor = $normal) {
+        if ("$valor".Trim()) { $secao.Linhas.Add([pscustomobject]@{ Rotulo = $rotulo; Valor = "$valor".Trim(); Cor = $cor }) }
+    }
+    function Format-GB($b) { if ($b -ge 1TB) { '{0:N1} TB' -f ($b / 1TB) } else { '{0:N0} GB' -f ($b / 1GB) } }
+
+    # Processador
+    $p = Get-CimInstance Win32_Processor | Select-Object -First 1
+    $cs = Get-CimInstance Win32_ComputerSystem
+    $s = New-Secao 'Processador' 0xE950
+    Add-Linha $s 'Modelo' $p.Name
+    $id = [regex]::Match("$($p.Caption)", 'Family (\d+) Model (\d+) Stepping (\d+)')
+    if ($id.Success) {
+        $fam = [int]$id.Groups[1].Value; $mod = [int]$id.Groups[2].Value
+        # Codinomes das gerações mais comuns (família/modelo informados pelo próprio processador)
+        $codinomes = @{
+            '23-1' = 'Summit Ridge (Zen)'; '23-8' = 'Pinnacle Ridge (Zen+)'; '23-17' = 'Raven Ridge (Zen)'; '23-24' = 'Picasso (Zen+)'
+            '23-49' = 'Castle Peak / Rome (Zen 2)'; '23-96' = 'Renoir (Zen 2)'; '23-104' = 'Lucienne (Zen 2)'; '23-113' = 'Matisse (Zen 2)'; '23-144' = 'Van Gogh (Zen 2)'
+            '25-1' = 'Milan (Zen 3)'; '25-8' = 'Chagall (Zen 3)'; '25-33' = 'Vermeer (Zen 3)'; '25-68' = 'Rembrandt (Zen 3+)'; '25-80' = 'Cezanne (Zen 3)'
+            '25-97' = 'Raphael (Zen 4)'; '25-116' = 'Phoenix (Zen 4)'; '25-117' = 'Hawk Point (Zen 4)'
+            '26-36' = 'Strix Point (Zen 5)'; '26-68' = 'Granite Ridge (Zen 5)'
+            '6-60' = 'Haswell'; '6-69' = 'Haswell'; '6-70' = 'Haswell'; '6-61' = 'Broadwell'; '6-78' = 'Skylake'; '6-94' = 'Skylake'
+            '6-142' = 'Kaby Lake / Coffee Lake (notebook)'; '6-158' = 'Kaby Lake / Coffee Lake'; '6-165' = 'Comet Lake'; '6-166' = 'Comet Lake'
+            '6-167' = 'Rocket Lake'; '6-126' = 'Ice Lake'; '6-140' = 'Tiger Lake'; '6-141' = 'Tiger Lake'; '6-151' = 'Alder Lake'; '6-154' = 'Alder Lake'
+            '6-190' = 'Alder Lake-N'; '6-183' = 'Raptor Lake'; '6-186' = 'Raptor Lake'; '6-191' = 'Raptor Lake'; '6-170' = 'Meteor Lake'
+            '6-189' = 'Lunar Lake'; '6-197' = 'Arrow Lake'; '6-198' = 'Arrow Lake'
+        }
+        Add-Linha $s 'Geração (codinome)' $codinomes["$fam-$mod"]
+        Add-Linha $s 'Identificação' ('Família {0}, modelo {1}, revisão {2}' -f $fam, $mod, $id.Groups[3].Value)
+    }
+    Add-Linha $s 'Soquete' $p.SocketDesignation
+    Add-Linha $s 'Núcleos / threads' ('{0} núcleos / {1} threads' -f $p.NumberOfCores, $p.NumberOfLogicalProcessors)
+    Add-Linha $s 'Clock base' ('{0:N2} GHz' -f ($p.MaxClockSpeed / 1000))
+    $caches = @(Get-CimInstance Win32_CacheMemory -ErrorAction SilentlyContinue)
+    $txtCache = @(foreach ($n in 3, 4, 5) {
+        $kb = ($caches | Where-Object { $_.Level -eq $n } | Measure-Object InstalledSize -Sum).Sum
+        if ($kb) { 'L{0} {1}' -f ($n - 2), $(if ($kb -ge 1024) { '{0:N0} MB' -f ($kb / 1024) } else { "$kb KB" }) }
+    }) -join ' · '
+    Add-Linha $s 'Cache' $txtCache
+    if (-not ('MonitorPC.Cpu' -as [type])) {
+        Add-Type -Namespace MonitorPC -Name Cpu -MemberDefinition '[DllImport("kernel32.dll")] public static extern bool IsProcessorFeaturePresent(int f);'
+    }
+    $instr = @(foreach ($par in @(@(10, 'SSE2'), @(13, 'SSE3'), @(36, 'SSSE3'), @(37, 'SSE4.1'), @(38, 'SSE4.2'), @(39, 'AVX'), @(40, 'AVX2'), @(41, 'AVX-512'))) {
+        if ([MonitorPC.Cpu]::IsProcessorFeaturePresent($par[0])) { $par[1] }
+    }) -join ', '
+    Add-Linha $s 'Instruções' $instr
+    $virt = if ($cs.HypervisorPresent) { 'Ativada (em uso pelo Windows: Hyper-V / segurança baseada em virtualização)' }
+            elseif ($p.VirtualizationFirmwareEnabled) { 'Ativada na BIOS' } else { 'Desativada na BIOS (procure SVM, VT-x ou Virtualization)' }
+    Add-Linha $s 'Virtualização' $virt
+
+    # Placa-mãe e BIOS
+    $placa = Get-CimInstance Win32_BaseBoard
+    $bios = Get-CimInstance Win32_BIOS
+    $s = New-Secao 'Placa-mãe e BIOS' 0xE964
+    Add-Linha $s 'Fabricante' $placa.Manufacturer
+    Add-Linha $s 'Modelo' ("$($placa.Product) $(if ($placa.Version -and $placa.Version -notmatch '^(x\.x|Default string|None)$') { "(rev. $($placa.Version))" })")
+    $chip = [regex]::Match("$($placa.Product)", '(?<![A-Z0-9])([ABHQWXZ]\d{3})').Groups[1].Value
+    if ($chip) { Add-Linha $s 'Chipset' "$chip (pelo modelo da placa)" }
+    Add-Linha $s 'BIOS' ('{0} {1}' -f $bios.Manufacturer, $bios.SMBIOSBIOSVersion)
+    if ($bios.ReleaseDate) {
+        $anos = ((Get-Date) - $bios.ReleaseDate).TotalDays / 365.25
+        Add-Linha $s 'Data da BIOS' ('{0:dd/MM/yyyy}{1}' -f $bios.ReleaseDate, $(if ($anos -ge 3) { ' · antiga: veja no site da placa se há atualização' })) $(if ($anos -ge 3) { $amb } else { $normal })
+    }
+    # O estado do Secure Boot só existe quando o PC dá a partida em UEFI
+    $sb = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State' -ErrorAction SilentlyContinue).UEFISecureBootEnabled
+    Add-Linha $s 'Modo de boot' $(if ($null -ne $sb) { 'UEFI' } else { 'Legado (BIOS/CSM)' })
+    Add-Linha $s 'Inicialização segura' $(if ($sb -eq 1) { 'Ativada' } elseif ($sb -eq 0) { 'Desativada' } else { '' })
+
+    # Memória
+    $mods = @(Get-CimInstance Win32_PhysicalMemory)
+    $slots = (Get-CimInstance Win32_PhysicalMemoryArray -ErrorAction SilentlyContinue | Measure-Object MemoryDevices -Sum).Sum
+    $s = New-Secao 'Memória' 0xE964
+    $tipo = switch (@($mods)[0].SMBIOSMemoryType) { 20 { 'DDR' } 21 { 'DDR2' } 24 { 'DDR3' } 26 { 'DDR4' } 30 { 'LPDDR4' } 34 { 'DDR5' } 35 { 'LPDDR5' } default { '' } }
+    Add-Linha $s 'Total' ('{0} {1}' -f (Format-GB ($mods | Measure-Object Capacity -Sum).Sum), $tipo)
+    $vel = @($mods)[0]
+    if ($vel.ConfiguredClockSpeed) {
+        $abaixo = $vel.Speed -and $vel.ConfiguredClockSpeed -lt $vel.Speed - 100
+        Add-Linha $s 'Velocidade' ('{0} MT/s{1}' -f $vel.ConfiguredClockSpeed, $(if ($abaixo) { " (o pente suporta $($vel.Speed): ative o XMP/EXPO na BIOS)" })) $(if ($abaixo) { $amb } else { $normal })
+    }
+    Add-Linha $s 'Pentes' ('{0}{1}' -f $mods.Count, $(if ($slots) { " de $slots slots" }))
+    if ($mods.Count -eq 1 -and $slots -ge 2) { Add-Linha $s 'Dica' 'Com 2 pentes iguais a memória trabalha em dual channel — mais desempenho, principalmente em jogos e vídeo integrado.' $amb }
+    foreach ($m in $mods) {
+        $onde = (@($m.BankLabel, $m.DeviceLocator) | Where-Object { "$_".Trim() }) -join ' / '
+        Add-Linha $s $onde ('{0} {1} · {2}{3}' -f "$($m.Manufacturer)".Trim(), "$($m.PartNumber)".Trim(), (Format-GB $m.Capacity), $(if ($m.Speed) { " · $($m.Speed) MT/s" }))
+    }
+
+    # Placa de vídeo (a VRAM real vem do registro: o Win32_VideoController para em 4 GB)
+    $vram = @{}
+    Get-ChildItem 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}' -ErrorAction SilentlyContinue | ForEach-Object {
+        $r = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+        if ($r.'HardwareInformation.qwMemorySize') { $vram[$r.DriverDesc] = [double]$r.'HardwareInformation.qwMemorySize' }
+    }
+    foreach ($g in Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notmatch 'Basic|Virtual|Remote|Parsec|Meta' }) {
+        $s = New-Secao 'Placa de vídeo' 0xE7F4
+        Add-Linha $s 'Modelo' $g.Name
+        $mem = if ($vram[$g.Name]) { $vram[$g.Name] } else { [double]$g.AdapterRAM }
+        if ($mem -gt 0) { Add-Linha $s 'Memória de vídeo' (Format-GB $mem) }
+        $ver = $g.DriverVersion
+        $nv = [regex]::Match("$ver", '^\d+\.\d+\.(\d+)\.(\d+)$')
+        if ($g.Name -match 'NVIDIA' -and $nv.Success) { $d = ($nv.Groups[1].Value + $nv.Groups[2].Value.PadLeft(4, '0')); $d = $d.Substring($d.Length - 5); $ver = '{0}.{1} (Windows: {2})' -f $d.Substring(0, 3), $d.Substring(3), $g.DriverVersion }
+        Add-Linha $s 'Driver' $ver
+        if ($g.DriverDate) { Add-Linha $s 'Data do driver' $g.DriverDate.ToString('dd/MM/yyyy') }
+        if ($g.CurrentHorizontalResolution) { Add-Linha $s 'Tela agora' ('{0} × {1} a {2} Hz' -f $g.CurrentHorizontalResolution, $g.CurrentVerticalResolution, $g.CurrentRefreshRate) }
+        Add-Linha $s 'Processador de vídeo' $g.VideoProcessor
+    }
+
+    # Armazenamento
+    $s = New-Secao 'Armazenamento' 0xEDA2
+    $firmwares = @{}
+    Get-CimInstance Win32_DiskDrive -ErrorAction SilentlyContinue | ForEach-Object { $firmwares["$($_.Model)".Trim()] = "$($_.FirmwareRevision)".Trim() }
+    foreach ($d in Get-PhysicalDisk -ErrorAction SilentlyContinue | Sort-Object DeviceId) {
+        $midia = switch ("$($d.MediaType)") { 'SSD' { 'SSD' } 'HDD' { 'HD' } default { 'Disco' } }
+        $saude = switch ("$($d.HealthStatus)") { 'Healthy' { 'saudável' } 'Warning' { 'ATENÇÃO' } 'Unhealthy' { 'COM DEFEITO' } default { "$($d.HealthStatus)" } }
+        $fw = $firmwares["$($d.FriendlyName)".Trim()]
+        Add-Linha $s "$($d.FriendlyName)".Trim() ('{0} {1} · {2} · {3}{4}' -f $midia, $d.BusType, (Format-GB $d.Size), $saude, $(if ($fw) { " · firmware $fw" })) $(if ("$($d.HealthStatus)" -ne 'Healthy') { $amb } else { $normal })
+    }
+
+    # Monitores (nome e tamanho vêm do próprio monitor, pelo EDID)
+    $s = New-Secao 'Monitores' 0xE7F4
+    $tamanhos = @{}
+    Get-CimInstance -Namespace root\wmi WmiMonitorBasicDisplayParams -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($_.MaxHorizontalImageSize) { $tamanhos[$_.InstanceName] = [Math]::Sqrt([Math]::Pow($_.MaxHorizontalImageSize, 2) + [Math]::Pow($_.MaxVerticalImageSize, 2)) / 2.54 }
+    }
+    $n = 0
+    foreach ($m in Get-CimInstance -Namespace root\wmi WmiMonitorID -ErrorAction SilentlyContinue) {
+        $n++
+        $nome = (($m.UserFriendlyName | Where-Object { $_ }) | ForEach-Object { [char]$_ }) -join ''
+        if (-not $nome) { $nome = "Monitor $n" }
+        $pol = $tamanhos[$m.InstanceName]
+        Add-Linha $s $nome ((@($(if ($pol) { '{0:N0}"' -f $pol }), $(if ($m.YearOfManufacture -gt 1990) { "fabricado em $($m.YearOfManufacture)" })) | Where-Object { $_ }) -join ' · ')
+    }
+    if (-not $n) { Add-Linha $s 'Monitor' 'não identificado' }
+
+    # Texto para copiar
+    $texto = foreach ($sec in $secoes) { ''; "[$($sec.Titulo)]"; foreach ($l in $sec.Linhas) { "$($l.Rotulo): $($l.Valor)" } }
+    [pscustomobject]@{ Secoes = $secoes.ToArray(); Texto = ($texto -join "`r`n").Trim(); ClockBase = [double]$p.MaxClockSpeed; Hora = Get-Date }
+}
+
+# ---- Drivers: atualizações do Windows Update, drivers antigos e dispositivos com problema ----
+$ScriptDrivers = {
+    $amb = '#FFB020'; $verm = '#FF5A4D'; $ok = $args[0]
+    $itens = New-Object System.Collections.Generic.List[object]
+    function Add-Drv($ordem, $nome, $glifo, $sub, $detalhe, $situacao, $cor, $acao = '', $acaoTexto = '') {
+        $itens.Add([pscustomobject]@{
+            Ordem = $ordem; Nome = $nome; Glifo = [string][char]$glifo; Sub = $sub; Detalhe = $detalhe; Situacao = $situacao
+            Cor = $cor; CorFundo = '#22' + $cor.TrimStart('#'); Acao = $acao; AcaoTexto = $acaoTexto; AcaoVisivel = $(if ($acao) { 'Visible' } else { 'Collapsed' })
+        })
+    }
+    function Get-Site($fab, $nome) {
+        if ("$fab $nome" -match 'NVIDIA') { 'https://www.nvidia.com/pt-br/drivers/' }
+        elseif ("$fab $nome" -match 'AMD|Advanced Micro|Radeon') { 'https://www.amd.com/pt/support/download/drivers.html' }
+        elseif ("$fab $nome" -match 'Intel') { 'https://www.intel.com.br/content/www/br/pt/support/detect.html' }
+        else { 'https://www.bing.com/search?q=' + [uri]::EscapeDataString("$nome driver download") }
+    }
+
+    # 1) O que o Windows Update tem de driver novo para este PC (fonte oficial)
+    $wu = @(); $wuOk = $false
+    try {
+        $res = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher().Search("IsInstalled=0 and Type='Driver' and IsHidden=0")
+        $wu = @($res.Updates | ForEach-Object { [pscustomobject]@{ Titulo = $_.Title; HW = "$($_.DriverHardwareID)"; Id = $_.Identity.UpdateID; Data = $_.DriverVerDate; Fab = $_.DriverManufacturer; Usado = $false } })
+        $wuOk = $true
+    } catch {}
+
+    # 2) Drivers das peças que importam (vídeo, rede, áudio, chipset, armazenamento, Bluetooth)
+    $classes = @{
+        DISPLAY = @('Placa de vídeo', 0xE7F4); NET = @('Rede', 0xE839); MEDIA = @('Áudio', 0xE767); SYSTEM = @('Chipset e sistema', 0xE950)
+        SCSIADAPTER = @('Armazenamento', 0xEDA2); HDC = @('Armazenamento', 0xEDA2); BLUETOOTH = @('Bluetooth', 0xE702)
+    }
+    $virtuais = 'Virtual|VPN|TAP-|Hyper-V|WAN Miniport|Loopback|Xvdd|Xbox|Steam Streaming|Parsec|Remote|Basic Display|Kernel Debug|Personal Area|WireGuard|NVIDIA Broadcast'
+    $drv = @(Get-CimInstance Win32_PnPSignedDriver -ErrorAction SilentlyContinue | Where-Object {
+        $_.DeviceName -and $classes.ContainsKey("$($_.DeviceClass)") -and $_.DeviceName -notmatch $virtuais -and
+        ($_.DeviceClass -in 'DISPLAY', 'NET' -or $_.DriverProviderName -ne 'Microsoft')
+    })
+    # Os componentes de chipset (GPIO, SMBus, PCI...) vêm num pacote só: viram uma linha por fabricante
+    $chave = {
+        if ($_.DeviceClass -eq 'SYSTEM') {
+            $fab = if ("$($_.DriverProviderName)" -match 'AMD|Advanced Micro') { 'AMD' } elseif ("$($_.DriverProviderName)" -match 'Intel') { 'Intel' } else { "$($_.DriverProviderName)".Trim() }
+            "chipset|$fab"
+        } else { "$($_.DeviceName)|$($_.DriverVersion)" }
+    }
+    foreach ($grupo in $drv | Group-Object $chave) {
+        $d = $grupo.Group | Sort-Object DriverDate | Select-Object -First 1   # o mais antigo do grupo
+        $cl = $classes["$($d.DeviceClass)"]
+        if ($grupo.Name -like 'chipset|*') {
+            $partes = @($grupo.Group | ForEach-Object { $_.DeviceName -replace '^(AMD|Intel\(R\)|Intel)\s+', '' } | Select-Object -Unique)
+            $nome = 'Chipset {0} — {1} componente(s): {2}' -f $grupo.Name.Split('|')[1], $grupo.Count, (($partes | Select-Object -First 4) -join ', ')
+        } else {
+            $nome = $d.DeviceName + $(if ($grupo.Count -gt 1) { " (×$($grupo.Count))" })
+        }
+        $data = $d.DriverDate
+        $dias = if ($data) { ((Get-Date) - $data).TotalDays } else { 0 }
+        $sub = '{0} · {1} · {2} {3}{4}' -f $cl[0], "$($d.DriverProviderName)".Trim(), $(if ($grupo.Name -like 'chipset|*') { 'mais antigo: versão' } else { 'versão' }), $d.DriverVersion, $(if ($data) { " de $($data.ToString('dd/MM/yyyy'))" })
+        $hws = @($grupo.Group | ForEach-Object { "$($_.HardWareID)" } | Where-Object { $_ })
+        $w = $wu | Where-Object { $hw = $_.HW; $hw -and ($hws | Where-Object { $_ -eq $hw -or $_.StartsWith($hw, [StringComparison]::OrdinalIgnoreCase) }) } | Select-Object -First 1
+        if ($w) {
+            $w.Usado = $true
+            Add-Drv 1 $nome $cl[1] $sub "O Windows Update tem uma versão nova: $($w.Titulo)" 'Atualização disponível' $amb "wu|$($w.Id)" 'Instalar'
+        } elseif ($d.DeviceClass -eq 'DISPLAY' -and $d.DriverProviderName -ne 'Microsoft' -and $dias -gt 180) {
+            Add-Drv 2 $nome $cl[1] $sub ('Driver de vídeo com {0:N0} meses. Jogos e programas novos costumam pedir a versão mais recente.' -f ($dias / 30)) 'Antigo' $amb ('site|' + (Get-Site $d.DriverProviderName $d.DeviceName)) 'Site do fabricante'
+        } elseif ($dias -gt 3 * 365 -and $d.DriverProviderName -ne 'Microsoft') {
+            Add-Drv 2 $nome $cl[1] $sub "Driver de $($data.Year). Pode haver versão mais nova no site do fabricante$(if ($d.DeviceClass -eq 'SYSTEM') { ' (pacote de chipset)' })." 'Antigo' $amb ('site|' + (Get-Site $d.DriverProviderName $d.DeviceName)) 'Site do fabricante'
+        } else {
+            Add-Drv 3 $nome $cl[1] $sub $(if ($wuOk) { 'Nenhuma versão nova no Windows Update.' } else { 'Não foi possível consultar o Windows Update agora.' }) 'Em dia' $ok
+        }
+    }
+    # Drivers do Windows Update para outros dispositivos
+    foreach ($w in $wu | Where-Object { -not $_.Usado }) {
+        Add-Drv 1 $w.Titulo 0xE895 "$($w.Fab) · versão de $(if ($w.Data) { $w.Data.ToString('dd/MM/yyyy') })" 'Driver novo oferecido pelo Windows Update.' 'Atualização disponível' $amb "wu|$($w.Id)" 'Instalar'
+    }
+
+    # 3) Dispositivos sem driver ou com erro (o "ponto de exclamação amarelo" do Gerenciador de Dispositivos)
+    $erros = @{ 1 = 'Mal configurado'; 3 = 'Driver corrompido'; 10 = 'Não consegue iniciar'; 18 = 'Precisa reinstalar o driver'; 19 = 'Configuração do registro corrompida'
+                22 = 'Desativado'; 24 = 'Não presente ou sem driver'; 28 = 'Sem driver instalado'; 31 = 'Não está funcionando'; 39 = 'Driver não carrega'; 43 = 'Parou por erro (código 43)' }
+    foreach ($e in Get-CimInstance Win32_PnPEntity -Filter 'ConfigManagerErrorCode <> 0' -ErrorAction SilentlyContinue) {
+        if ($e.ConfigManagerErrorCode -eq 45) { continue }   # aparelho desconectado
+        $txt = if ($erros[[int]$e.ConfigManagerErrorCode]) { $erros[[int]$e.ConfigManagerErrorCode] } else { "Com erro (código $($e.ConfigManagerErrorCode))" }
+        $nome = if ($e.Name) { $e.Name } else { $e.DeviceID }
+        $cor = if ($e.ConfigManagerErrorCode -eq 22) { $amb } else { $verm }
+        Add-Drv 0 $nome 0xE7BA "$($e.PNPClass) · $($e.Manufacturer)" "$txt. Abra o Gerenciador de Dispositivos, clique com o botão direito no item e escolha Atualizar driver." $txt $cor 'gerenciador' 'Gerenciador'
+    }
+    [pscustomobject]@{ Itens = @($itens | Sort-Object Ordem, Nome); WuOk = $wuOk; Hora = Get-Date }
+}
+
+$script:FichaHw = $null; $script:hwJob = $null
+$script:Drivers = $null; $script:drvJob = $null
+$script:cntClock = $null
+
+function Start-FichaHw {
+    if ($script:hwJob) { return }
+    $ui.txtHwInfo.Text = 'Lendo as peças...'
+    $ps = [powershell]::Create()
+    [void]$ps.AddScript($ScriptFichaHw)
+    $script:hwJob = @{ Ps = $ps; Handle = $ps.BeginInvoke() }
+    $timerHw.Start()
+}
+
+function Start-Drivers {
+    if ($script:drvJob) { return }
+    $ui.btnDrvProcurar.IsEnabled = $false
+    $ui.txtDrvTitulo.Text = 'Drivers'
+    $ui.txtDrvInfo.Text = 'Conferindo os drivers e consultando o Windows Update (pode levar até 1 minuto)...'
+    $ps = [powershell]::Create()
+    [void]$ps.AddScript($ScriptDrivers).AddArgument($Cor.Lima)
+    $script:drvJob = @{ Ps = $ps; Handle = $ps.BeginInvoke() }
+    $timerHw.Start()
+}
+
+function Show-Drivers($r) {
+    $script:Drivers = $r
+    $ui.icDrivers.ItemsSource = @($r.Itens)
+    $problemas = @($r.Itens | Where-Object { $_.Ordem -eq 0 }).Count
+    $novos = @($r.Itens | Where-Object { $_.Ordem -eq 1 }).Count
+    $antigos = @($r.Itens | Where-Object { $_.Ordem -eq 2 }).Count
+    # Lista montada item a item: @($(if...), $(if...), $(if...)) some inteira quando dois seguidos vêm vazios
+    $partes = New-Object System.Collections.Generic.List[string]
+    if ($problemas) { $partes.Add("$problemas com problema") }
+    if ($novos) { $partes.Add("$novos com atualização") }
+    if ($antigos) { $partes.Add("$antigos antigo(s)") }
+    $ui.txtDrvTitulo.Text = if ($partes.Count) { 'Drivers — ' + ($partes -join ' · ') } else { 'Drivers — tudo em dia' }
+    $ui.txtDrvInfo.Text = 'Verificado às {0:HH:mm} · {1} dispositivo(s) conferido(s){2}' -f $r.Hora, @($r.Itens).Count,
+        $(if (-not $r.WuOk) { ' · o Windows Update não respondeu, então só a idade dos drivers foi avaliada' } else { ' · Windows Update consultado' })
+    if ($problemas -and $Config.AlertasAtivos -and -not $script:AvisouDriver) {
+        $script:AvisouDriver = $true
+        Send-Alerta 'Dispositivo com problema' "$problemas dispositivo(s) sem driver ou com erro. Veja a aba Hardware e drivers."
+    }
+}
+
+function Show-FichaHw($r) {
+    $script:FichaHw = $r
+    $cartoes = foreach ($sec in $r.Secoes) {
+        $pilha = New-Object Windows.Controls.StackPanel
+        $cab = New-Object Windows.Controls.StackPanel
+        $cab.Orientation = 'Horizontal'; $cab.Margin = '0,0,0,10'
+        $bolha = New-Object Windows.Controls.Border; $bolha.Style = $window.FindResource('Bolha')
+        $ic = New-Object Windows.Controls.TextBlock; $ic.Style = $window.FindResource('Icone'); $ic.Text = $sec.Glifo
+        $bolha.Child = $ic
+        $tit = New-Object Windows.Controls.TextBlock; $tit.Style = $window.FindResource('TituloCard'); $tit.Text = $sec.Titulo; $tit.Margin = '10,0,0,0'
+        [void]$cab.Children.Add($bolha); [void]$cab.Children.Add($tit); [void]$pilha.Children.Add($cab)
+        foreach ($l in $sec.Linhas) {
+            $g = New-Object Windows.Controls.Grid; $g.Margin = '0,3'
+            $c1 = New-Object Windows.Controls.ColumnDefinition; $c1.Width = 150
+            [void]$g.ColumnDefinitions.Add($c1); [void]$g.ColumnDefinitions.Add((New-Object Windows.Controls.ColumnDefinition))
+            $rot = New-Object Windows.Controls.TextBlock; $rot.Style = $window.FindResource('Suave'); $rot.Text = $l.Rotulo; $rot.TextWrapping = 'Wrap'; $rot.Margin = '0,0,10,0'
+            $val = New-Object Windows.Controls.TextBlock; $val.Text = $l.Valor; $val.FontSize = 12; $val.TextWrapping = 'Wrap'; $val.Foreground = Get-Pincel $l.Cor
+            [Windows.Controls.Grid]::SetColumn($val, 1)
+            [void]$g.Children.Add($rot); [void]$g.Children.Add($val)
+            [void]$pilha.Children.Add($g)
+        }
+        $cartao = New-Object Windows.Controls.Border; $cartao.Style = $window.FindResource('Card'); $cartao.Child = $pilha
+        $cartao
+    }
+    # Items.Add (e não ItemsSource): assim o WPF recebe o controle de verdade, não o "embrulho" do PowerShell
+    $ui.icFichaHw.Items.Clear()
+    foreach ($c in $cartoes) { [void]$ui.icFichaHw.Items.Add($c) }
+    $ui.txtHwInfo.Text = 'Lido às {0:HH:mm}' -f $r.Hora
+}
+
+$timerHw = New-Object Windows.Threading.DispatcherTimer
+$timerHw.Interval = [TimeSpan]::FromMilliseconds(400)
+$timerHw.add_Tick({
+    foreach ($k in 'hwJob', 'drvJob') {
+        $j = Get-Variable -Name $k -Scope Script -ValueOnly
+        if (-not $j -or -not $j.Handle.IsCompleted) { continue }
+        try {
+            $r = $j.Ps.EndInvoke($j.Handle) | Select-Object -Last 1
+            if ($k -eq 'hwJob') {
+                Show-FichaHw $r
+            } else { Show-Drivers $r }
+        } catch {
+            if ($k -eq 'hwJob') { $ui.txtHwInfo.Text = "Erro ao ler as peças: $($_.Exception.Message)" } else { $ui.txtDrvInfo.Text = "Erro ao conferir os drivers: $($_.Exception.Message)" }
+        } finally {
+            $j.Ps.Dispose()
+            Set-Variable -Name $k -Scope Script -Value $null
+            if ($k -eq 'drvJob') { $ui.btnDrvProcurar.IsEnabled = $true }
+        }
+    }
+    if (-not $script:hwJob -and -not $script:drvJob) { $timerHw.Stop() }
+})
+
+# Clock atual do processador (como o "Core Speed" do CPU-Z): base × desempenho atual do Windows
+function Update-ClockAgora($cpu) {
+    if (-not $script:FichaHw) { return }
+    if ($null -eq $script:cntClock) {
+        try { $script:cntClock = New-Object Diagnostics.PerformanceCounter('Processor Information', '% Processor Performance', '_Total'); [void]$script:cntClock.NextValue() }
+        catch { $script:cntClock = $false }
+    }
+    $ghz = if ($script:cntClock) { $script:FichaHw.ClockBase * $script:cntClock.NextValue() / 100 / 1000 } else { $null }
+    $ui.txtClockAgora.Text = if ($ghz) { 'Processador agora: {0:N2} GHz · {1}%' -f $ghz, $cpu } else { "Processador agora: $cpu%" }
+}
+
+$ui.btnDrvProcurar.add_Click({ Start-Drivers })
+$ui.btnDrvGerenciador.add_Click({ Start-Process devmgmt.msc })
+$ui.btnHwCopiar.add_Click({
+    if (-not $script:FichaHw) { return }
+    [Windows.Clipboard]::SetText("Ficha técnica — $env:COMPUTERNAME — $((Get-Date).ToString('dd/MM/yyyy HH:mm'))`r`n" + $script:FichaHw.Texto)
+    $ui.txtHwInfo.Text = 'Ficha técnica copiada.'
+})
+$ui.icDrivers.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($s, $e)
+    $item = $e.OriginalSource.DataContext
+    if ($e.OriginalSource -isnot [Windows.Controls.Button] -or -not $item) { return }
+    $tipo, $valor = "$($e.OriginalSource.Tag)" -split '\|', 2
+    switch ($tipo) {
+        'gerenciador' { Start-Process devmgmt.msc }
+        'site' { if ($valor -match '^https://') { Start-Process $valor } }
+        'wu' {
+            if ($valor -notmatch '^[0-9a-fA-F\-]{36}$') { return }   # o ID vai num comando: só aceita GUID
+            Invoke-Comando @{
+                Titulo = 'Instalar driver pelo Windows Update'; Admin = $true
+                Descricao = "Baixa e instala pelo Windows Update (fonte oficial):`n$($item.Nome)`n`nPode piscar a tela ou pedir para reiniciar no fim."
+                Script = @"
+`$sessao = New-Object -ComObject Microsoft.Update.Session
+Write-Host 'Procurando o driver no Windows Update...'
+`$res = `$sessao.CreateUpdateSearcher().Search("UpdateID='$valor'")
+`$lista = New-Object -ComObject Microsoft.Update.UpdateColl
+foreach (`$u in `$res.Updates) { if (`$u.EulaAccepted) { [void]`$lista.Add(`$u) } else { Write-Host 'Este driver pede para aceitar termos: instale por Configurações > Windows Update > Opções avançadas > Atualizações opcionais.' -ForegroundColor Yellow } }
+if (`$lista.Count) {
+    Write-Host 'Baixando...'; `$b = `$sessao.CreateUpdateDownloader(); `$b.Updates = `$lista; [void]`$b.Download()
+    Write-Host 'Instalando...'; `$i = `$sessao.CreateUpdateInstaller(); `$i.Updates = `$lista; `$r = `$i.Install()
+    if (`$r.ResultCode -eq 2) { Write-Host 'Driver instalado.' -ForegroundColor Green } else { Write-Host "O Windows Update terminou com o código `$(`$r.ResultCode)." -ForegroundColor Yellow }
+    if (`$r.RebootRequired) { Write-Host 'Reinicie o PC para concluir.' -ForegroundColor Yellow }
+} elseif (-not `$res.Updates.Count) { Write-Host 'O driver não está mais disponível (talvez já tenha sido instalado).' -ForegroundColor Yellow }
+"@
+            }
+        }
+    }
+})
+#endregion
+
 #region Configurações na tela
-$AtalhoInicio =Join-Path ([Environment]::GetFolderPath('Startup')) 'Monitor PC.lnk'
+$AtalhoInicio = Join-Path ([Environment]::GetFolderPath('Startup')) 'Monitor PC.lnk'
 
 function Show-Config {
     $ui.chkAlertas.IsChecked = [bool]$Config.AlertasAtivos
@@ -7141,9 +7614,9 @@ $ui.btnAnalisar.add_Click({
 })
 
 # Menu lateral: cada item troca a aba (índice na ordem do menu)
-$Menu = @($ui.mnPainel, $ui.mnProc, $ui.mnAlertas, $ui.mnVida, $ui.mnOtim, $ui.mnSeg, $ui.mnApps, $ui.mnJogos, $ui.mnEspaco, $ui.mnErros, $ui.mnLimpeza, $ui.mnTrab)
+$Menu = @($ui.mnPainel, $ui.mnProc, $ui.mnAlertas, $ui.mnVida, $ui.mnOtim, $ui.mnSeg, $ui.mnApps, $ui.mnJogos, $ui.mnEspaco, $ui.mnErros, $ui.mnLimpeza, $ui.mnTrab, $ui.mnHw)
 # Índice da aba (ordem no XAML) de cada item do menu; 7 = Aparência, que não tem item no menu
-$AbaDoMenu = @{ mnPainel = 0; mnProc = 1; mnAlertas = 2; mnVida = 3; mnOtim = 4; mnSeg = 5; mnApps = 6; mnJogos = 8; mnEspaco = 9; mnErros = 10; mnLimpeza = 11; mnTrab = 12 }
+$AbaDoMenu = @{ mnPainel = 0; mnProc = 1; mnAlertas = 2; mnVida = 3; mnOtim = 4; mnSeg = 5; mnApps = 6; mnJogos = 8; mnEspaco = 9; mnErros = 10; mnLimpeza = 11; mnTrab = 12; mnHw = 13 }
 function Select-Aba([int]$i) {
     foreach ($m in $Menu) { if ($AbaDoMenu[$m.Name] -eq $i) { $m.IsChecked = $true } }
 }
@@ -7163,6 +7636,10 @@ for ($i = 0; $i -lt $Menu.Count; $i++) {
         if ($idx -eq 12) {
             if (-not $script:Inventario -and -not $script:invJob) { Start-Inventario }
             if (-not $ui.wpReuniaoFechar.Children.Count) { Update-ListaReuniao }
+        }
+        if ($idx -eq 13) {
+            if (-not $script:FichaHw) { Start-FichaHw }
+            if (-not $script:Drivers) { Start-Drivers }
         }
     })
 }

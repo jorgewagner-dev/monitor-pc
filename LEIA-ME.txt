@@ -56,6 +56,12 @@ DICAS
   shaders, cache de navegadores/Discord/Spotify, relatórios de erro, downloads antigos
   e arquivos duplicados) e mostra quanto dá para liberar. Você escolhe o que apagar;
   downloads e duplicados vão para a Lixeira, e sempre fica uma cópia de cada arquivo.
+- A aba Hardware e drivers confere os drivers das peças principais (vídeo, rede,
+  áudio, chipset, armazenamento): mostra o que o Windows Update tem de novo (com
+  botão para instalar), drivers muito antigos (com link para o site do fabricante)
+  e dispositivos sem driver ou com erro. Embaixo fica a ficha técnica no estilo do
+  CPU-Z: processador (geração, cache, instruções, clock ao vivo), placa-mãe e BIOS,
+  cada pente de memória, placa de vídeo, discos e monitores.
 - A aba Travamentos lê os registros do Windows e explica telas azuis, desligamentos
   inesperados, erros de hardware/disco e programas que fecharam sozinhos.
 - O botão de paleta no topo abre a Aparência: escolha a cor (verde, vermelho, azul,

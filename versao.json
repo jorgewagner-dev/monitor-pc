@@ -1,7 +1,7 @@
 {
-    "versao":  "2.8.0",
-    "data":  "2026-11-01",
-    "notas":  "perfis Gamer e Profissional, Modo Reunião, conformidade e relatório do PC",
-    "arquivo":  "https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/v2.8.0/MonitorPC.ps1",
-    "sha256":  "75BBE6C67565951718445BA85293AED21E6D4FD55CB34643A009CAD6271BABBA"
+    "versao":  "2.9.0",
+    "data":  "2026-11-02",
+    "notas":  "Hardware e drivers: drivers desatualizados e ficha técnica estilo CPU-Z",
+    "arquivo":  "https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/v2.9.0/MonitorPC.ps1",
+    "sha256":  "4A66B28D324435567027A76589AA7E61EF275DA2FC47F8BE9E0F2672897BE550"
 }

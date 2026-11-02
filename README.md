@@ -10,6 +10,10 @@ Dois perfis, escolhidos na primeira vez que abre (e trocados depois na Aparênci
 - **Profissional** — Modo Reunião (protege chamadas detectando o microfone em uso), inventário e conformidade
   (licença, Windows Update, BitLocker, Secure Boot, TPM, backup) e relatório do PC em HTML/PDF para o TI.
 
+Nos dois perfis há também a aba **Hardware e drivers**: drivers desatualizados (pelo Windows Update), antigos ou
+com erro, e uma ficha técnica no estilo do CPU-Z (processador, placa-mãe/BIOS, memória por pente, vídeo, discos e
+monitores).
+
 Manual completo: [Manual do Monitor PC.docx](Manual%20do%20Monitor%20PC.docx).
 
 ## Como usar
