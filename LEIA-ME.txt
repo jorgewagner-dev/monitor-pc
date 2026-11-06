@@ -1,4 +1,4 @@
-MONITOR PC
+﻿MONITOR PC
 ==========
 
 Painel para acompanhar CPU, RAM, disco e rede do PC em tempo real, com alertas,
@@ -76,6 +76,16 @@ DICAS
   real (diz se o lag é do Wi-Fi ou da internet) e o resumo de cada sessão de jogo.
 - Placas NVIDIA mostram temperatura, consumo e VRAM. AMD/Intel mostram uso e VRAM.
 - Os comandos da aba Otimizar sempre pedem confirmação antes de rodar.
+  A Central de execução mostra uma animação, o tempo decorrido e a saída do comando.
+  O CHKDSK /f abre o terminal para você responder à pergunta de agendamento.
   Antes dos avançados, crie um ponto de restauração (primeiro item do nível Avançado).
 
 Configurações ficam salvas em %APPDATA%\MonitorPC
+
+OTIMIZAR AGORA (aba Otimizar)
+Escolha Leve, Gamer ou Personalizado; marque os aplicativos e clique em Aplicar otimização.
+Salve seu trabalho antes: o Monitor solicita o fechamento normal e não força o encerramento.
+Gamer oferece alto desempenho temporário; Personalizado lembra sua seleção.
+Restaurar sessão reabre os programas e devolve o plano anterior. Documentos não salvos não são recuperados.
+Ao sair normalmente, o Monitor tenta restaurar a sessão; após um encerramento inesperado, use Restaurar sessão.
+Revisar inicialização abre os ajustes do Windows. Limpar temporários abre a Limpeza inteligente para revisão.

@@ -26,6 +26,22 @@ Detalhes em [LEIA-ME.txt](LEIA-ME.txt).
 
 ## Atualizações
 
+### Otimizar agora
+
+Na aba **Otimizar**, escolha **Leve**, **Gamer** ou **Personalizado** e marque os aplicativos que pode fechar.
+A lista mostra CPU/RAM; o perfil Personalizado lembra a última seleção. O fechamento é normal, sem encerramento
+forçado. Salve seus documentos e responda aos pedidos de confirmação dos aplicativos.
+
+O perfil Gamer oferece alto desempenho temporário. **Restaurar sessão** devolve o plano anterior e reabre os
+aplicativos fechados; não recupera documentos não salvos. A sessão é restaurada ao sair normalmente do Monitor.
+Se ele encerrar inesperadamente, o registro fica em `%APPDATA%\MonitorPC\otimizacao-sessao.json` para recuperação
+na próxima abertura. Mudanças de plano feitas por outros programas são respeitadas.
+
+Os botões **Revisar inicialização** e **Limpar temporários** abrem as telas correspondentes para revisão.
+Serviços, antivírus e processos essenciais não são desativados. Esta função não garante aumento de FPS.
+
+Verificação local: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\otimizar-agora.Tests.ps1`.
+
 O Monitor confere uma vez por dia o arquivo [`versao.json`](versao.json). Quando há versão nova, ele baixa o
 `MonitorPC.ps1`, confere a impressão digital SHA-256 e só então instala (mantendo a versão anterior como `.bak`).
 

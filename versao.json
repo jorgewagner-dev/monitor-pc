@@ -1,7 +1,7 @@
 {
-    "versao":  "2.9.0",
-    "data":  "2026-11-02",
-    "notas":  "Hardware e drivers: drivers desatualizados e ficha técnica estilo CPU-Z",
-    "arquivo":  "https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/v2.9.0/MonitorPC.ps1",
-    "sha256":  "4A66B28D324435567027A76589AA7E61EF275DA2FC47F8BE9E0F2672897BE550"
+  "versao": "2.9.1",
+  "data": "2026-11-06",
+  "notas": "Atualizador animado, Central de execução, Otimizar agora, layout para telas menores e exceções de processos na aba Segurança.",
+  "arquivo": "https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/v2.9.1/MonitorPC.ps1",
+  "sha256": "30C5841E725FC3BF5001A5F2E6DDCE324965B33FC3CAD4C25F06B543382B6BEF"
 }

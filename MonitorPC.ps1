@@ -32,7 +32,7 @@ $EventoMostrar = New-Object System.Threading.EventWaitHandle($false, 'AutoReset'
 #endregion
 
 $AppNome   = 'Monitor PC'
-$VersaoApp = '2.9.0'
+$VersaoApp = '2.9.1'
 # Endereço do arquivo versao.json publicado (vazio = atualização automática desligada)
 $UrlAtualizacaoPadrao = 'https://raw.githubusercontent.com/jorgewagner-dev/monitor-pc/main/versao.json'
 $Intervalo = 1      # segundos entre leituras
@@ -89,6 +89,7 @@ function Get-ConfigPadrao {
         Sustentar          = 10
         IntervaloAlertaMin = 5
         AnoCompra          = ''
+        SegIgnorados       = @()
         Perfil             = ''      # '' = ainda não escolheu; 'Gamer' ou 'Profissional'
         Reuniao            = $true
         ReuniaoPausarWU    = $true
@@ -407,7 +408,7 @@ try {
 $XamlTexto = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Monitor PC" Width="1340" Height="860" MinWidth="1120" MinHeight="680"
+        Title="Monitor PC" Width="1340" Height="860" MinWidth="700" MinHeight="420"
         WindowStyle="None" ResizeMode="CanResize" Background="#0B0B0D"
         Foreground="#F2F2F5" FontFamily="Segoe UI" FontSize="13"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True"
@@ -863,12 +864,14 @@ $XamlTexto = @'
   <Border x:Name="raiz">
     <Grid>
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="236"/>
+        <ColumnDefinition x:Name="colMenu" Width="236"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
       <!-- ================= MENU LATERAL ================= -->
       <Border Background="#0B0B0D" BorderBrush="#18181B" BorderThickness="0,0,1,0">
+        <ScrollViewer x:Name="svMenu" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+        <Grid MinHeight="{Binding ViewportHeight, ElementName=svMenu}">
         <DockPanel Margin="16,18,16,16">
           <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,2,0,28">
             <Path Data="M0,14 L10,4 L20,14 M0,22 L10,12 L20,22" Stroke="#A6F23A" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center"/>
@@ -908,6 +911,8 @@ $XamlTexto = @'
             <RadioButton x:Name="mnOtim" Style="{StaticResource Menu}" Tag="&#xEC4A;" Content="Otimizar"/>
           </StackPanel>
         </DockPanel>
+        </Grid>
+        </ScrollViewer>
       </Border>
 
       <!-- ================= ÁREA PRINCIPAL ================= -->
@@ -936,14 +941,14 @@ $XamlTexto = @'
                 <TextBlock x:Name="txtBadge" FontSize="10" FontWeight="Bold" Foreground="#0B0B0D" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
               </Border>
             </Grid>
-            <Border Width="40" Height="40" CornerRadius="20" Background="#1A2614" BorderBrush="#2F4A16" BorderThickness="1" Margin="0,0,14,0">
+            <Border x:Name="bdAvatar" Width="40" Height="40" CornerRadius="20" Background="#1A2614" BorderBrush="#2F4A16" BorderThickness="1" Margin="0,0,14,0">
               <TextBlock x:Name="txtAvatar" FontWeight="Bold" Foreground="#A6F23A" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <Button x:Name="btnMin" Style="{StaticResource BtnJanela}" Content="&#xE921;"/>
             <Button x:Name="btnMax" Style="{StaticResource BtnJanela}" Content="&#xE922;"/>
             <Button x:Name="btnFechar" Style="{StaticResource BtnJanela}" Content="&#xE8BB;"/>
           </StackPanel>
-          <Border Width="320" Height="40" HorizontalAlignment="Left" CornerRadius="20" Background="#141416" BorderBrush="#1F1F23" BorderThickness="1"
+          <Border MaxWidth="320" Height="40" HorizontalAlignment="Stretch" VerticalAlignment="Center" CornerRadius="20" Background="#141416" BorderBrush="#1F1F23" BorderThickness="1"
                   WindowChrome.IsHitTestVisibleInChrome="True">
             <Grid Margin="16,0">
               <TextBlock Text="&#xE721;" Style="{StaticResource Icone}" Foreground="#8E8E96" HorizontalAlignment="Left" FontSize="13"/>
@@ -1577,8 +1582,9 @@ $XamlTexto = @'
 
           <!-- ===================== VIDA ÚTIL ===================== -->
           <TabItem>
-            <DockPanel Margin="14,0,14,14">
-              <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="22,16">
+            <ScrollViewer x:Name="svVida" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="14,0,14,14">
+              <StackPanel>
+              <Border Style="{StaticResource Card}" Padding="22,16">
                 <DockPanel>
                   <Button x:Name="btnAnalisar" DockPanel.Dock="Right" Content="Analisar peças"/>
                   <Border DockPanel.Dock="Right" Background="#141416" BorderBrush="#1F1F23" BorderThickness="1" CornerRadius="11" Padding="12,0" Margin="0,0,12,0">
@@ -1588,39 +1594,36 @@ $XamlTexto = @'
                     </StackPanel>
                   </Border>
                   <StackPanel>
-                    <TextBlock Text="Vida útil das peças" FontSize="22" FontWeight="SemiBold"/>
-                    <TextBlock x:Name="txtVidaStatus" Style="{StaticResource Suave}" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="Vida útil das peças" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="txtVidaStatus" Style="{StaticResource Suave}" TextWrapping="Wrap"/>
                   </StackPanel>
                 </DockPanel>
               </Border>
 
               <!-- Teste de velocidade do disco -->
-              <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="22,16">
+              <Border Style="{StaticResource Card}" Padding="22,16">
                 <StackPanel>
                   <DockPanel>
                     <Button x:Name="btnTestarDisco" DockPanel.Dock="Right" Content="Testar velocidade" VerticalAlignment="Center"/>
                     <WrapPanel x:Name="wpDiscos" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,12,-8"/>
                     <StackPanel>
-                      <TextBlock Text="Velocidade do disco" Style="{StaticResource TituloCard}"/>
+                      <TextBlock Text="Velocidade do disco" Style="{StaticResource TituloCard}" TextWrapping="Wrap"/>
                       <TextBlock x:Name="txtDiscoInfo" Style="{StaticResource Suave}" TextWrapping="Wrap"
                                  Text="Mede leitura e gravação com a ferramenta do próprio Windows (winsat). Leva de 5 s (SSD) a 1 min (HD)."/>
                     </StackPanel>
                   </DockPanel>
                   <UniformGrid x:Name="ugDisco" Columns="4" Margin="0,14,0,0" Visibility="Collapsed">
-                    <StackPanel><TextBlock Text="Leitura sequencial" Style="{StaticResource Suave}"/><TextBlock x:Name="txtDiscoLeitura" FontSize="22" FontWeight="SemiBold"/><TextBlock x:Name="txtDiscoLeituraAnt" Style="{StaticResource Suave}" FontSize="11"/></StackPanel>
-                    <StackPanel><TextBlock Text="Gravação sequencial" Style="{StaticResource Suave}"/><TextBlock x:Name="txtDiscoGravacao" FontSize="22" FontWeight="SemiBold"/><TextBlock x:Name="txtDiscoGravacaoAnt" Style="{StaticResource Suave}" FontSize="11"/></StackPanel>
-                    <StackPanel><TextBlock Text="Leitura aleatória (arquivos pequenos)" Style="{StaticResource Suave}"/><TextBlock x:Name="txtDiscoAleatoria" FontSize="22" FontWeight="SemiBold"/></StackPanel>
-                    <StackPanel><TextBlock Text="Tempo de resposta (95%)" Style="{StaticResource Suave}"/><TextBlock x:Name="txtDiscoLatencia" FontSize="22" FontWeight="SemiBold"/></StackPanel>
+                    <StackPanel Margin="0,0,10,8"><TextBlock Text="Leitura sequencial" Style="{StaticResource Suave}" TextWrapping="Wrap"/><TextBlock x:Name="txtDiscoLeitura" FontSize="22" FontWeight="SemiBold"/><TextBlock x:Name="txtDiscoLeituraAnt" Style="{StaticResource Suave}" FontSize="11" TextWrapping="Wrap"/></StackPanel>
+                    <StackPanel Margin="0,0,10,8"><TextBlock Text="Gravação sequencial" Style="{StaticResource Suave}" TextWrapping="Wrap"/><TextBlock x:Name="txtDiscoGravacao" FontSize="22" FontWeight="SemiBold"/><TextBlock x:Name="txtDiscoGravacaoAnt" Style="{StaticResource Suave}" FontSize="11" TextWrapping="Wrap"/></StackPanel>
+                    <StackPanel Margin="0,0,10,8"><TextBlock Text="Leitura aleatória (arquivos pequenos)" Style="{StaticResource Suave}" TextWrapping="Wrap"/><TextBlock x:Name="txtDiscoAleatoria" FontSize="22" FontWeight="SemiBold"/></StackPanel>
+                    <StackPanel Margin="0,0,10,8"><TextBlock Text="Tempo de resposta (95%)" Style="{StaticResource Suave}" TextWrapping="Wrap"/><TextBlock x:Name="txtDiscoLatencia" FontSize="22" FontWeight="SemiBold"/></StackPanel>
                   </UniformGrid>
                   <TextBlock x:Name="txtDiscoVeredito" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,12,0,0" Visibility="Collapsed"/>
                 </StackPanel>
               </Border>
-              <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="8,4,8,0"
-                         Text="SSD/HD e bateria usam dados reais do sensor (SMART) — o desgaste do SSD exige abrir como administrador. CPU, RAM, placa de vídeo, placa-mãe e fonte não informam desgaste: o valor em verde-água é uma ESTIMATIVA pela idade comparada à vida típica da peça."/>
-              <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <ItemsControl x:Name="icVida">
+                <ItemsControl x:Name="icVida" Tag="2">
                   <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate>
+                    <ItemsPanelTemplate><UniformGrid Columns="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/></ItemsPanelTemplate>
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -1642,8 +1645,10 @@ $XamlTexto = @'
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
-              </ScrollViewer>
-            </DockPanel>
+                <TextBlock Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="8,4,8,0"
+                           Text="SSD/HD e bateria usam dados reais do sensor (SMART) — o desgaste do SSD exige abrir como administrador. CPU, RAM, placa de vídeo, placa-mãe e fonte não informam desgaste: o valor em verde-água é uma ESTIMATIVA pela idade comparada à vida típica da peça."/>
+              </StackPanel>
+            </ScrollViewer>
           </TabItem>
 
           <!-- ===================== OTIMIZAR ===================== -->
@@ -1653,11 +1658,35 @@ $XamlTexto = @'
                 <StackPanel>
                   <TextBlock Text="Otimizar o PC" FontSize="22" FontWeight="SemiBold"/>
                   <TextBlock Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,4,0,0"
-                             Text="Cada comando abre em uma janela própria para você acompanhar. Os marcados com Admin pedem permissão do Windows. Antes dos avançados, crie um ponto de restauração (primeiro item do nível Avançado)."/>
+                             Text="Acompanhe o andamento e o resultado dos comandos no Monitor PC. Os marcados com Admin podem pedir permissão do Windows. Antes dos avançados, crie um ponto de restauração (primeiro item do nível Avançado)."/>
                 </StackPanel>
               </Border>
               <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel>
+                  <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                      <TextBlock Text="Otimizar agora" Style="{StaticResource TituloCard}"/>
+                      <TextBlock Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,6,0,12" Text="Escolha o perfil e marque os aplicativos que pode fechar. Salve seu trabalho antes de aplicar. O Monitor solicita o fechamento normal; aplicativos que recusarem continuam abertos."/>
+                      <WrapPanel>
+                        <RadioButton x:Name="rbAgoraLeve" Style="{StaticResource Seg}" GroupName="otimAgora" Content="Leve" IsChecked="True"/>
+                        <RadioButton x:Name="rbAgoraGamer" Style="{StaticResource Seg}" GroupName="otimAgora" Content="Gamer"/>
+                        <RadioButton x:Name="rbAgoraCustom" Style="{StaticResource Seg}" GroupName="otimAgora" Content="Personalizado"/>
+                      </WrapPanel>
+                      <TextBlock x:Name="txtAgoraPerfil" Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,10,0,10"/>
+                      <CheckBox x:Name="chkAgoraEnergia" Content="Usar alto desempenho temporariamente (pode aumentar consumo e temperatura)"/>
+                      <TextBlock Text="Aplicativos disponíveis — consumo é uma estimativa do momento da atualização" Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,12,0,6"/>
+                      <StackPanel x:Name="spAgoraApps"/>
+                      <WrapPanel Margin="0,12,0,0">
+                        <Button x:Name="btnAgoraListar" Content="Atualizar lista" Style="{StaticResource BtnSecundario}" Margin="0,0,8,8"/>
+                        <Button x:Name="btnAgoraAplicar" Content="Aplicar otimização" Margin="0,0,8,8"/>
+                        <Button x:Name="btnAgoraRestaurar" Content="Restaurar sessão" Style="{StaticResource BtnSecundario}" Margin="0,0,8,8" IsEnabled="False"/>
+                        <Button x:Name="btnAgoraInicio" Content="Revisar inicialização" Style="{StaticResource BtnSecundario}" Margin="0,0,8,8"/>
+                        <Button x:Name="btnAgoraLimpeza" Content="Limpar temporários" Style="{StaticResource BtnSecundario}" Margin="0,0,8,8"/>
+                      </WrapPanel>
+                      <TextBlock x:Name="txtAgoraStatus" Text="Nenhuma otimização aplicada." TextWrapping="Wrap" Margin="0,6,0,0"/>
+                      <TextBlock Text="Restaurar reabre os aplicativos que fecharam e devolve o plano de energia anterior; documentos e abas dependem da recuperação do próprio aplicativo. Fechar aplicativos pode liberar recursos, mas não garante ganho de FPS. A limpeza abre a análise para você revisar o que será apagado." Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    </StackPanel>
+                  </Border>
                   <!-- Manutenção automática -->
                   <Border Style="{StaticResource Card}" Padding="22,18">
                     <StackPanel>
@@ -1714,9 +1743,9 @@ $XamlTexto = @'
               </Border>
               <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel>
-                  <ItemsControl x:Name="icProtecao">
+                  <ItemsControl x:Name="icProtecao" Tag="4">
                     <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate><UniformGrid Columns="4"/></ItemsPanelTemplate>
+                      <ItemsPanelTemplate><UniformGrid Columns="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/></ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
@@ -1768,17 +1797,35 @@ $XamlTexto = @'
                               <TextBlock Text="{Binding Linha}" Style="{StaticResource Suave}" Margin="0,3,0,0"/>
                               <TextBlock Text="{Binding Caminho}" FontFamily="Consolas" FontSize="11" Foreground="#C8C8CE" TextWrapping="Wrap" Margin="0,6,0,0"/>
                               <TextBlock Text="{Binding Motivo}" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="#C8C8CE"/>
-                              <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                              <WrapPanel Margin="0,10,0,0">
                                 <Button Content="Abrir local" Tag="abrir" Style="{StaticResource BtnSecundario}" Padding="12,5" FontSize="12" Margin="0,0,8,0"/>
                                 <Button Content="Ver no VirusTotal" Tag="vt" Style="{StaticResource BtnSecundario}" Padding="12,5" FontSize="12" Margin="0,0,8,0"/>
+                                <Button Content="Ignorar" Tag="ignorar" Style="{StaticResource BtnSecundario}" Padding="12,5" FontSize="12" Margin="0,0,8,0"/>
                                 <Button Content="Finalizar processo" Tag="fim" Padding="12,5" FontSize="12" Background="#FF5A4D"/>
-                              </StackPanel>
+                              </WrapPanel>
                             </StackPanel>
                           </Grid>
                         </Border>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
+                  <Expander x:Name="expSegIgnorados" Header="Processos ignorados" Margin="10,12,10,0" Foreground="#C8C8CE" Visibility="Collapsed">
+                    <ItemsControl x:Name="icSegIgnorados">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Style="{StaticResource Card}">
+                            <DockPanel>
+                              <Button DockPanel.Dock="Right" Content="Voltar a verificar" Style="{StaticResource BtnSecundario}" Margin="10,0,0,0"/>
+                              <StackPanel>
+                                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding Caminho}" Style="{StaticResource Suave}" TextWrapping="Wrap"/>
+                              </StackPanel>
+                            </DockPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </Expander>
                   <TextBlock Style="{StaticResource Suave}" TextWrapping="Wrap" Margin="10,10,10,0"
                              Text="Como funciona: confere se os processos do Windows (svchost, lsass, csrss...) estão na pasta certa, procura nomes que imitam processos do sistema, programas rodando de pastas suspeitas (Temp, Downloads, Lixeira) e arquivos sem assinatura digital. 'Ver no VirusTotal' envia só a impressão digital (hash) do arquivo, nunca o arquivo. A verificação roda sozinha a cada 15 minutos."/>
                 </StackPanel>
@@ -2302,7 +2349,7 @@ $XamlTexto = @'
 
                 <TextBlock Text="Resolver problemas comuns" FontSize="18" FontWeight="SemiBold" Margin="10,14,10,2"/>
                 <TextBlock Style="{StaticResource Suave}" Margin="10,0,10,4" TextWrapping="Wrap"
-                           Text="Cada problema explica por que acontece e traz comandos prontos. Os comandos abrem numa janela própria e sempre pedem confirmação."/>
+                           Text="Cada problema explica por que acontece e traz comandos prontos. Confirme a execução e acompanhe o resultado no Monitor PC."/>
                 <StackPanel x:Name="spGuias"/>
               </StackPanel>
             </ScrollViewer>
@@ -3779,6 +3826,16 @@ $ScriptSeguranca = {
 
     # ---- Antivírus ----
     $avs = @(Get-CimInstance -Namespace root\SecurityCenter2 AntiVirusProduct -ErrorAction SilentlyContinue)
+    $mp = $null
+    try { $mp = Get-MpComputerStatus -ErrorAction Stop } catch {}
+    # O Defender integrado pode registrar um URI no lugar de um executável.
+    $defenderRegistrado = @($avs | Where-Object {
+        $_.displayName -in 'Windows Defender','Microsoft Defender Antivirus','Microsoft Defender Antivírus' -or
+        $_.pathToSignedProductExe -like 'windowsdefender:*'
+    })
+    $avs = @($avs | Where-Object { $_ -notin $defenderRegistrado })
+    $defenderAtivo = if ($mp) { $mp.AntivirusEnabled -and $mp.RealTimeProtectionEnabled }
+                     else { [bool]($defenderRegistrado | Where-Object { Test-Ligado $_.productState }) }
     # Registro "órfão": o programa foi desinstalado mas o Windows ainda tem ele cadastrado
     function Test-Existe($av) {
         $exe = [Environment]::ExpandEnvironmentVariables("$($av.pathToSignedProductExe)")
@@ -3787,6 +3844,7 @@ $ScriptSeguranca = {
     $orfaos = @($avs | Where-Object { -not (Test-Existe $_) })
     $ativos = @($avs | Where-Object { (Test-Ligado $_.productState) -and (Test-Existe $_) })
     $velhos = @($ativos | Where-Object { ($_.productState -band 0xFF) -ne 0 })
+    if ($defenderAtivo) { $ativos += [pscustomobject]@{ displayName = 'Microsoft Defender' } }
     if ($orfaos.Count -and $ativos.Count -le 1) {
         $nomes = ($orfaos | ForEach-Object { $_.displayName }) -join ', '
         Add-Protecao 'Antivírus' 0xEA18 'Atenção' 'Restos de antivírus antigo' `
@@ -3803,8 +3861,6 @@ $ScriptSeguranca = {
     }
 
     # ---- Windows Defender ----
-    $mp = $null
-    try { $mp = Get-MpComputerStatus -ErrorAction Stop } catch {}
     if ($mp -and $mp.AntivirusEnabled) {
         $diasScan = if ($mp.QuickScanEndTime) { ((Get-Date) - $mp.QuickScanEndTime).TotalDays } else { 999 }
         if (-not $mp.RealTimeProtectionEnabled) {
@@ -3927,6 +3983,19 @@ $CacheAssinaturas = [hashtable]::Synchronized(@{})
 $script:seg = $null
 $script:SegCriticosAntes = -1
 
+function Get-AchadoHash([string]$caminho) {
+    if ($caminho) {
+        try { (Get-FileHash -LiteralPath $caminho -Algorithm SHA256 -ErrorAction Stop).Hash } catch {}
+    }
+}
+
+function Update-SegIgnorados {
+    $itens = @($Config.SegIgnorados | Where-Object { $_.Caminho -and $_.Hash -match '^[0-9a-f]{64}$' })
+    $ui.icSegIgnorados.ItemsSource = $itens
+    $ui.expSegIgnorados.Header = "Processos ignorados ($($itens.Count))"
+    $ui.expSegIgnorados.Visibility = if ($itens.Count) { 'Visible' } else { 'Collapsed' }
+}
+
 function Start-Seguranca {
     if ($script:seg) { return }
     $ui.btnVerificar.IsEnabled = $false
@@ -3937,7 +4006,26 @@ function Start-Seguranca {
     $timerSeg.Start()
 }
 
-function Show-Seguranca($r) {
+function Show-Seguranca($r, [switch]$SemAviso) {
+    $script:SegResultadoBruto = $r
+    $ignorar = @($Config.SegIgnorados | Where-Object { $_.Caminho -and $_.Hash -match '^[0-9a-f]{64}$' })
+    $hashes = @{}
+    $visiveis = @(foreach ($achado in $r.Achados) {
+        $regras = @($ignorar | Where-Object Caminho -EQ $achado.Caminho)
+        if ($regras.Count) {
+            if (-not $hashes.ContainsKey($achado.Caminho)) {
+                $hashes[$achado.Caminho] = Get-AchadoHash $achado.Caminho
+            }
+            $hash = $hashes[$achado.Caminho]
+            if ($hash -and $hash -in $regras.Hash) { continue }
+        }
+        $achado
+    })
+    $r = [pscustomobject]@{
+        Protecao = $r.Protecao; Achados = $visiveis; Verificados = $r.Verificados
+        SemCaminho = $r.SemCaminho; Hora = $r.Hora
+    }
+    Update-SegIgnorados
     $script:UltimaSeguranca = $r   # usado no relatório do PC
     $ui.icProtecao.ItemsSource = @($r.Protecao)
     $ui.icAchados.ItemsSource = @($r.Achados)
@@ -3947,13 +4035,19 @@ function Show-Seguranca($r) {
     $ui.bdSemAchados.Visibility = if (@($r.Achados).Count) { 'Collapsed' } else { 'Visible' }
     $ui.txtSemAchados.Text = "$($r.Verificados) programas conferidos."
     $ui.txtAchadosInfo.Text = '{0} verificados · {1} achado(s)' -f $r.Verificados, @($r.Achados).Count
+    $nIgnorados = @($script:SegResultadoBruto.Achados).Count - $visiveis.Count
+    if ($nIgnorados -gt 0) {
+        $ui.txtAchadosInfo.Text += " · $nIgnorados ignorado(s)"
+        $ui.txtSemAchados.Text += " $nIgnorados achado(s) ocultado(s) pela sua lista de ignorados."
+    }
 
     if ($criticos.Count) {
         $titulo = "$($criticos.Count) problema(s) crítico(s)"; $corG = $Cor.Vermelho; $glifo = 0xE7BA
     } elseif ($atencao.Count) {
         $titulo = "$($atencao.Count) ponto(s) de atenção"; $corG = $Cor.Ambar; $glifo = 0xEA18
     } else {
-        $titulo = 'Tudo protegido'; $corG = $Cor.Lima; $glifo = 0xE73E
+        $titulo = if ($nIgnorados) { 'Sem alertas visíveis' } else { 'Tudo protegido' }
+        $corG = $Cor.Lima; $glifo = 0xE73E
     }
     $resumo = 'Última verificação às {0:HH:mm} · {1} programas conferidos.' -f $r.Hora, $r.Verificados
     if ($r.SemCaminho -gt 0 -and -not $EhAdmin) {
@@ -3972,10 +4066,10 @@ function Show-Seguranca($r) {
                              else { "$($r.Verificados) programas conferidos às $('{0:HH:mm}' -f $r.Hora)" }
 
     # Avisa só quando aparecem problemas críticos novos
-    if ($Config.AlertasAtivos -and $script:SegCriticosAntes -ge 0 -and $criticos.Count -gt $script:SegCriticosAntes) {
+    if (-not $SemAviso -and $Config.AlertasAtivos -and $script:SegCriticosAntes -ge 0 -and $criticos.Count -gt $script:SegCriticosAntes) {
         $c = $criticos | Select-Object -First 1
         Send-Alerta 'Problema de segurança' ("$($c.Titulo): $(if ($c.Status) { $c.Status } else { $c.Nome }). Veja a aba Segurança.")
-    } elseif ($Config.AlertasAtivos -and $script:SegCriticosAntes -lt 0 -and $criticos.Count) {
+    } elseif (-not $SemAviso -and $Config.AlertasAtivos -and $script:SegCriticosAntes -lt 0 -and $criticos.Count) {
         Send-Alerta 'Problema de segurança' "$titulo encontrado(s). Veja a aba Segurança."
     }
     $script:SegCriticosAntes = $criticos.Count
@@ -4031,6 +4125,24 @@ function Invoke-AcaoSeguranca($acao) {
 
 function Invoke-AcaoAchado($acao, $item) {
     switch ($acao) {
+        'ignorar' {
+            $hash = Get-AchadoHash $item.Caminho
+            if (-not $hash) {
+                [void][Windows.MessageBox]::Show('Não foi possível identificar esse arquivo. A verificação continuará sinalizando o processo.', $AppNome)
+                return
+            }
+            $msg = @(
+                "Ignorar $($item.Nome) nas verificações do Monitor?"
+                $item.Caminho
+                'Use somente se reconhecer o arquivo. A exceção vale para esta versão do arquivo e pode ser removida em Processos ignorados.'
+            ) -join ([Environment]::NewLine * 2)
+            if ([Windows.MessageBox]::Show($msg, $AppNome, 'YesNo', 'Warning') -ne 'Yes') { return }
+            $Config.SegIgnorados = @($Config.SegIgnorados | Where-Object Caminho -NE $item.Caminho) + @(
+                [pscustomobject]@{ Nome = $item.Nome; Caminho = $item.Caminho; Hash = $hash }
+            )
+            Save-Config
+            Show-Seguranca $script:SegResultadoBruto -SemAviso
+        }
         'abrir' {
             if (Test-Path $item.Caminho) { Start-Process explorer.exe "/select,`"$($item.Caminho)`"" }
         }
@@ -4063,6 +4175,16 @@ $ui.icAchados.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [
     if ($e.OriginalSource -is [Windows.Controls.Button]) { Invoke-AcaoAchado $e.OriginalSource.Tag $e.OriginalSource.DataContext }
 })
 $ui.btnVerificar.add_Click({ Start-Seguranca })
+$ui.icSegIgnorados.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
+    param($s, $e)
+    $item = $e.OriginalSource.DataContext
+    if (-not $item.Hash) { return }
+    $Config.SegIgnorados = @($Config.SegIgnorados | Where-Object Caminho -NE $item.Caminho)
+    Save-Config
+    if ($script:SegResultadoBruto) { Show-Seguranca $script:SegResultadoBruto -SemAviso }
+    else { Update-SegIgnorados }
+})
+Update-SegIgnorados
 #endregion
 
 #region Aplicativos
@@ -4136,6 +4258,8 @@ $ScriptApps = {
     $restos = New-Object System.Collections.Generic.List[object]
     $pastasProgramas = @(${env:ProgramFiles(x86)}, $env:ProgramFiles) | Where-Object { $_ }
     foreach ($a in $avs) {
+        if ($a.displayName -in 'Windows Defender','Microsoft Defender Antivirus','Microsoft Defender Antivírus' -or
+            $a.pathToSignedProductExe -like 'windowsdefender:*') { continue }
         $exe = [Environment]::ExpandEnvironmentVariables("$($a.pathToSignedProductExe)")
         if (-not $exe -or (Test-Path -LiteralPath $exe)) { continue }
         # Pasta "raiz" do fabricante dentro de Arquivos de Programas (ex.: ...\360\Total Security\... -> 360)
@@ -4346,11 +4470,13 @@ $ui.txtCorHex.add_TextChanged({
 })
 
 function Restart-App {
-    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`" -Reiniciando"
+    if (Test-ComandoEmExecucao) { return }
+    Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`" -Reiniciando"
     Exit-App
 }
 
 $ui.btnAplicarTema.add_Click({
+    if (Test-ComandoEmExecucao) { return }
     $Config.CorDestaque = $script:CorEscolhida
     $Config.Brilho = [bool]$ui.chkBrilho.IsChecked
     Save-Config
@@ -4444,30 +4570,107 @@ $timerAtu.add_Tick({
     } finally { $j.Ps.Dispose(); $script:atuJob = $null }
 })
 
+$ScriptInstalarAtualizacao = {
+    param($info, [string]$destino, $estado)
+    $tmp = Join-Path ([IO.Path]::GetDirectoryName($destino)) ('.monitorpc-update-' + [guid]::NewGuid().ToString('N') + '.tmp')
+    try {
+        if ($info.sha256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'A versão publicada não tem uma impressão digital SHA-256 válida.' }
+        $estado.Fase = 0
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $wc = New-Object Net.WebClient
+        try { $wc.DownloadFile($info.arquivo, $tmp) } finally { $wc.Dispose() }
+
+        $estado.Fase = 1
+        if ((Get-FileHash -LiteralPath $tmp -Algorithm SHA256 -ErrorAction Stop).Hash -ne $info.sha256) {
+            throw 'O arquivo baixado não confere com a versão publicada (SHA-256 diferente).'
+        }
+        $erros = $null
+        [void][Management.Automation.Language.Parser]::ParseFile($tmp, [ref]$null, [ref]$erros)
+        if ($erros.Count) { throw 'O arquivo baixado contém erros de sintaxe.' }
+
+        $estado.Fase = 2
+        # A troca usa um arquivo no mesmo volume e preserva o anterior como backup.
+        [IO.File]::Replace($tmp, $destino, "$destino.bak")
+        @{ Ok = $true }
+    } catch {
+        @{ Ok = $false; Erro = $_.Exception.Message }
+    } finally {
+        Remove-Item -LiteralPath $tmp -ErrorAction SilentlyContinue
+    }
+}
+
 function Install-Atualizacao {
+    if (Test-ComandoEmExecucao) { return }
     $n = $script:Novidade
     if (-not $n) { return }
     $msg = "Atualizar o Monitor PC de $VersaoApp para $($n.versao)?" + $(if ($n.notas) { "`n`nNovidades: $($n.notas)" } else { '' }) +
            "`n`nSuas configurações continuam. Uma cópia da versão atual fica salva como MonitorPC.ps1.bak."
     if ([Windows.MessageBox]::Show($msg, $AppNome, 'YesNo', 'Question') -ne 'Yes') { return }
-    $tmp = Join-Path $env:TEMP "MonitorPC_$($n.versao).ps1"
+    $painel = New-PainelComando @{ Titulo = "Monitor PC $VersaoApp → $($n.versao)" } -Atualizacao
+    $painel.FindName('NotasAtualizacao').Text = if ($n.notas) { [string]$n.notas } else { 'Atualização do Monitor PC' }
+    $estado = [hashtable]::Synchronized(@{ Fase = 0; Terminou = $false; Ok = $false })
+    $rotulos = @('Baixando a nova versão…', 'Verificando integridade e sintaxe…', 'Instalando e guardando o backup…')
+    $status = $painel.FindName('Estado')
+    $fechar = $painel.FindName('Fechar')
+    $status.Text = $rotulos[0]
+    $painel.add_Closing({ param($s,$e) if (-not $estado.Terminou) { $e.Cancel = $true } }.GetNewClosure())
+    $fechar.add_Click({ $painel.Close() }.GetNewClosure())
+    $painel.FindName('FecharTitulo').add_Click({ $painel.Close() }.GetNewClosure())
+    $ps = [powershell]::Create()
+    $timer = [Windows.Threading.DispatcherTimer]::new()
+    $timer.Interval = [TimeSpan]::FromMilliseconds(150)
+    $inicio = [Diagnostics.Stopwatch]::StartNew()
+    $corOk = Get-Pincel $Cor.Lima
+    $corAviso = Get-Pincel $Cor.Ambar
     try {
-        $ui.txtAtualizacao.Text = 'Baixando...'
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        (New-Object Net.WebClient).DownloadFile($n.arquivo, $tmp)
-        # Confere a impressão digital: só instala se for exatamente o arquivo publicado
-        $hash = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash
-        if (-not $n.sha256 -or $hash -ne "$($n.sha256)".ToUpper()) { throw 'o arquivo baixado não confere com a versão publicada (SHA-256 diferente). Nada foi alterado.' }
-        $err = $null; [void][Management.Automation.Language.Parser]::ParseFile($tmp, [ref]$null, [ref]$err)
-        if ($err.Count) { throw 'o arquivo baixado está com erro. Nada foi alterado.' }
-        Copy-Item -LiteralPath $PSCommandPath -Destination "$PSCommandPath.bak" -Force
-        Copy-Item -LiteralPath $tmp -Destination $PSCommandPath -Force
-        Remove-Item $tmp -ErrorAction SilentlyContinue
-        Restart-App
+        [void]$ps.AddScript($ScriptInstalarAtualizacao).AddArgument($n).AddArgument($PSCommandPath).AddArgument($estado)
+        $handle = $ps.BeginInvoke()
+        $timer.add_Tick({
+            $fase = $estado.Fase
+            $status.Text = $rotulos[$fase]
+            $painel.FindName('Tempo').Text = 'Tempo decorrido: ' + $inicio.Elapsed.ToString('hh\:mm\:ss')
+            $etapas = @('Baixar', 'Verificar', 'Instalar')
+            for ($i = 0; $i -lt $etapas.Count; $i++) {
+                $etapa = $painel.FindName("Etapa$i")
+                $etapa.Text = if ($i -lt $fase) { "✓ $($etapas[$i])" } else { "$($i + 1). $($etapas[$i])" }
+                $etapa.Opacity = if ($i -le $fase) { 1.0 } else { 0.55 }
+            }
+            if (-not $handle.IsCompleted) { return }
+            $timer.Stop()
+            try {
+                $r = $ps.EndInvoke($handle) | Select-Object -Last 1
+                if (-not $r.Ok) { throw $(if ($r.Erro) { $r.Erro } else { 'A instalação terminou sem resultado.' }) }
+                $estado.Ok = $true
+                $status.Text = 'Atualização pronta para reiniciar'
+                $status.Foreground = $corOk
+                $painel.FindName('Etapa2').Text = '✓ Instalar'
+                $painel.FindName('NotasAtualizacao').Text = 'A versão anterior foi guardada em MonitorPC.ps1.bak. Reinicie o Monitor PC para abrir a nova versão.'
+                $fechar.Content = 'Reiniciar Monitor PC'
+            } catch {
+                $estado.Erro = $_.Exception.Message
+                $status.Text = 'Não foi possível atualizar'
+                $status.Foreground = $corAviso
+                $painel.FindName('NotasAtualizacao').Text = $estado.Erro
+            } finally {
+                $estado.Terminou = $true
+                $painel.FindName('Indicador').Visibility = 'Collapsed'
+                $fechar.IsEnabled = $true
+            }
+        }.GetNewClosure())
+        $timer.Start()
+        [void]$painel.ShowDialog()
+        if ($estado.Ok) {
+            $ui.txtAtualizacao.Text = "Versão $($n.versao) instalada. Reiniciando o Monitor PC…"
+            Restart-App
+        } else {
+            $ui.txtAtualizacao.Text = "Não foi possível atualizar: $($estado.Erro)"
+        }
     } catch {
-        Remove-Item $tmp -ErrorAction SilentlyContinue
         $ui.txtAtualizacao.Text = "Não foi possível atualizar: $($_.Exception.Message)"
         [Windows.MessageBox]::Show("Não foi possível atualizar: $($_.Exception.Message)", $AppNome) | Out-Null
+    } finally {
+        $timer.Stop()
+        $ps.Dispose()
     }
 }
 
@@ -4559,7 +4762,7 @@ $ui.btnUpdTodos.add_Click({
     Invoke-Comando @{
         Titulo = "Atualizar $($script:Updates.Count) programas"; Admin = $false
         Descricao = "Baixa e instala as versões novas de: $(($script:Updates | Select-Object -First 8 | ForEach-Object { $_.Nome }) -join ', ')$(if ($script:Updates.Count -gt 8) { '...' })`n`nAlguns instaladores pedem permissão do Windows — confirme. Ao continuar, você aceita os termos de licença desses programas. Feche os programas que serão atualizados antes."
-        Script = 'winget upgrade --all --accept-package-agreements --accept-source-agreements'
+        Script = 'winget upgrade --all --accept-package-agreements --accept-source-agreements --disable-interactivity'
     }
 })
 $ui.icUpd.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler]{
@@ -4570,7 +4773,7 @@ $ui.icUpd.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Wind
     Invoke-Comando @{
         Titulo = "Atualizar $($item.Nome)"; Admin = $false
         Descricao = "Baixa e instala $($item.Nome) $($item.Nova) (você tem a $($item.Versao)).`n`nSe o instalador pedir permissão do Windows, confirme. Ao continuar, você aceita os termos de licença do programa. Feche o programa antes."
-        Script = "winget upgrade --id `"$id`" -e --accept-package-agreements --accept-source-agreements"
+        Script = "winget upgrade --id `"$id`" -e --accept-package-agreements --accept-source-agreements --disable-interactivity"
     }
 })
 #endregion
@@ -5444,6 +5647,7 @@ $Comandos = @(
        Descricao = 'Remove versões antigas de atualizações do Windows. Libera espaço, mas não dá mais para desinstalar essas atualizações.'
        Script = 'DISM /Online /Cleanup-Image /StartComponentCleanup' }
     @{ Nivel = 'Avançado'; Titulo = 'Corrigir disco no próximo boot (CHKDSK /f)'; Admin = $true; Risco = 'Moderado'; Glifo = 0xEDA2
+       Interativo = $true
        Descricao = 'Agenda a correção do C: para quando reiniciar (responda S). O boot seguinte pode demorar bastante.'
        Script = 'chkdsk $env:SystemDrive /f' }
     @{ Nivel = 'Avançado'; Titulo = 'Resetar a rede (Winsock e TCP/IP)'; Admin = $true; Risco = 'Moderado'; Glifo = 0xEC05
@@ -5457,11 +5661,258 @@ $Comandos = @(
        Script = 'Start-Process mdsched.exe' }
 )
 
+function New-CodigoComando([string]$codigo, [string]$log) {
+    $modelo = @'
+$log = '__LOG__'
+$saida = [IO.StreamWriter]::new($log, $true, [Text.UTF8Encoding]::new($false))
+$saida.AutoFlush = $true
+$script:falha = $false
+$global:LASTEXITCODE = 0
+function winget {
+    # O WinGet escreve UTF-8 quando a saída é capturada.
+    $anterior = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [Text.Encoding]::UTF8
+        & winget.exe @args
+    } finally {
+        [Console]::OutputEncoding = $anterior
+    }
+}
+try {
+    & {
+__COMANDO__
+    } *>&1 | ForEach-Object {
+        if ($_ -is [Management.Automation.ErrorRecord] -and $_.FullyQualifiedErrorId -notlike 'NativeCommandError*') {
+            $script:falha = $true
+        }
+        if ($_ -is [Management.Automation.InformationRecord]) { $_.ToString() }
+        else { $_ }
+    } | Out-String -Stream -Width 160 | ForEach-Object { $saida.WriteLine($_) }
+} catch {
+    $script:falha = $true
+    $saida.WriteLine($_.ToString())
+} finally {
+    $saida.Dispose()
+}
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if ($script:falha) { exit 1 }
+exit 0
+'@
+    $modelo.Replace('__LOG__', $log.Replace("'", "''")).Replace('__COMANDO__', $codigo)
+}
+
+function New-PainelComando($cmd, [switch]$Atualizacao) {
+    $xaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Monitor PC · Central de execução" Width="640" Height="490"
+        MinWidth="360" MinHeight="320" WindowStartupLocation="CenterOwner"
+        WindowStyle="None" ResizeMode="CanResize" ShowInTaskbar="False"
+        Background="#0B0B0D" Foreground="#F2F2F5" FontFamily="Segoe UI"
+        TextOptions.TextFormattingMode="Display" UseLayoutRounding="True" SnapsToDevicePixels="True">
+  <WindowChrome.WindowChrome>
+    <WindowChrome CaptionHeight="42" ResizeBorderThickness="6" GlassFrameThickness="0"
+                  CornerRadius="0" UseAeroCaptionButtons="False"/>
+  </WindowChrome.WindowChrome>
+  <Border BorderBrush="#1F1F23" BorderThickness="1">
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Height="42" Background="#121214" BorderBrush="#1F1F23" BorderThickness="0,0,0,1">
+      <DockPanel Margin="12,0,5,0">
+        <Button x:Name="FecharTitulo" DockPanel.Dock="Right" Width="44" Height="32"
+                Content="&#xE8BB;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                ToolTip="Fechar" AutomationProperties.Name="Fechar Central de execução"
+                WindowChrome.IsHitTestVisibleInChrome="True"
+                IsEnabled="{Binding IsEnabled, ElementName=Fechar}"/>
+        <Image x:Name="IconeTitulo" DockPanel.Dock="Left" Width="19" Height="19" Margin="0,0,9,0"/>
+        <TextBlock x:Name="TituloBarra" Text="Monitor PC · Central de execução" VerticalAlignment="Center" FontWeight="SemiBold"
+                   TextTrimming="CharacterEllipsis"/>
+      </DockPanel>
+    </Border>
+  <Grid Margin="24,16,24,20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <StackPanel>
+      <TextBlock x:Name="Secao" Text="MONITOR PC  /  CENTRAL DE EXECUÇÃO" Foreground="#ACCENT" FontSize="11" FontWeight="SemiBold"/>
+      <TextBlock x:Name="Titulo" FontSize="23" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,8,0,12"/>
+    </StackPanel>
+    <Border Grid.Row="1" Background="#121214" BorderBrush="#1F1F23" BorderThickness="1" CornerRadius="12" Padding="14,10">
+      <StackPanel Orientation="Horizontal">
+        <Grid x:Name="Indicador" Width="28" Height="28" Margin="0,0,12,0">
+          <Ellipse Stroke="#373740" StrokeThickness="3"/>
+          <Path Data="M 14,1.5 A 12.5,12.5 0 0 1 26.5,14" Stroke="#ACCENT" StrokeThickness="3"
+                StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
+            <Path.RenderTransform><RotateTransform/></Path.RenderTransform>
+            <Path.Triggers>
+              <EventTrigger RoutedEvent="Loaded">
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                     From="0" To="360" Duration="0:0:1.05" RepeatBehavior="Forever"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </EventTrigger>
+            </Path.Triggers>
+          </Path>
+        </Grid>
+        <TextBlock x:Name="Estado" VerticalAlignment="Center" FontWeight="SemiBold" Text="Preparando execução..."/>
+      </StackPanel>
+    </Border>
+    <TextBlock x:Name="RotuloSaida" Grid.Row="2" Text="Saída da tarefa" Foreground="#A8A8B3" Margin="0,14,0,6"/>
+    <TextBox x:Name="Saida" Grid.Row="3" IsReadOnly="True" AcceptsReturn="True" FontFamily="Consolas"
+             Background="#141416" Foreground="#F2F2F5" BorderBrush="#1F1F23" Padding="10"
+             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+    <StackPanel x:Name="ProgressoAtualizacao" Grid.Row="3" Visibility="Collapsed" Margin="0,16,0,0">
+      <WrapPanel Margin="0,0,0,12">
+        <TextBlock x:Name="Etapa0" Text="1. Baixar" FontWeight="SemiBold" Foreground="#ACCENT" Margin="0,0,18,6"/>
+        <TextBlock x:Name="Etapa1" Text="2. Verificar" FontWeight="SemiBold" Foreground="#ACCENT" Margin="0,0,18,6" Opacity="0.55"/>
+        <TextBlock x:Name="Etapa2" Text="3. Instalar" FontWeight="SemiBold" Foreground="#ACCENT" Margin="0,0,0,6" Opacity="0.55"/>
+      </WrapPanel>
+      <Border Background="#121214" BorderBrush="#1F1F23" BorderThickness="1" CornerRadius="12" Padding="12">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="100">
+          <TextBlock x:Name="NotasAtualizacao" TextWrapping="Wrap" Foreground="#C8C8CE"/>
+        </ScrollViewer>
+      </Border>
+    </StackPanel>
+    <DockPanel Grid.Row="4" Margin="0,14,0,0">
+      <Button x:Name="Fechar" DockPanel.Dock="Right" Content="Fechar" IsEnabled="False" Padding="18,6"
+              Background="#222228" Foreground="#F2F2F5" BorderBrush="#373740"/>
+      <TextBlock x:Name="Tempo" VerticalAlignment="Center" Foreground="#A8A8B3" Text="Tempo decorrido: 00:00:00"/>
+    </DockPanel>
+  </Grid>
+  </DockPanel>
+  </Border>
+</Window>
+'@
+    $painel = [Windows.Markup.XamlReader]::Parse($xaml.Replace('#ACCENT', $Cor.Lima))
+    $painel.Owner = $window
+    $painel.Icon = $window.Icon
+    $painel.FindName('IconeTitulo').Source = $painel.Icon
+    $painel.MaxWidth = [Math]::Max(360.0, $window.ActualWidth)
+    $painel.MaxHeight = [Math]::Max(320.0, $window.ActualHeight)
+    $painel.FindName('Titulo').Text = $cmd.Titulo
+    if ($Atualizacao) {
+        $painel.Title = 'Monitor PC · Atualização'
+        $painel.FindName('TituloBarra').Text = $painel.Title
+        $painel.FindName('Secao').Text = 'MONITOR PC  /  ATUALIZAÇÃO'
+        $painel.FindName('FecharTitulo').SetValue([Windows.Automation.AutomationProperties]::NameProperty, 'Fechar atualização')
+        $painel.FindName('RotuloSaida').Visibility = 'Collapsed'
+        $painel.FindName('Saida').Visibility = 'Collapsed'
+        $painel.FindName('ProgressoAtualizacao').Visibility = 'Visible'
+    }
+    $estiloBotao = $window.TryFindResource('BtnSecundario')
+    if ($estiloBotao) { $painel.FindName('Fechar').Style = $estiloBotao }
+    $estiloTitulo = $window.TryFindResource('BtnJanela')
+    if ($estiloTitulo) { $painel.FindName('FecharTitulo').Style = $estiloTitulo }
+    $tipoBarra = [Windows.Controls.Primitives.ScrollBar]
+    $estiloBarra = $window.TryFindResource($tipoBarra)
+    if ($estiloBarra) { $painel.Resources[$tipoBarra] = $estiloBarra }
+    $painel
+}
+
+function Show-PainelComando($cmd, [string]$codigo) {
+    $painel = New-PainelComando $cmd
+    $estado = $painel.FindName('Estado')
+    $saida = $painel.FindName('Saida')
+    $tempo = $painel.FindName('Tempo')
+    $fechar = $painel.FindName('Fechar')
+    $corOk = Get-Pincel $Cor.Lima
+    $corAviso = Get-Pincel $Cor.Ambar
+    $log = [IO.Path]::GetTempFileName()
+    $tarefa = @{ Processo = $null; Leitor = $null; Terminou = $false; Inicio = [Diagnostics.Stopwatch]::StartNew() }
+    $timerComando = [Windows.Threading.DispatcherTimer]::new()
+    $timerComando.Interval = [TimeSpan]::FromMilliseconds(250)
+    $timerComando.add_Tick({
+        $tempo.Text = 'Tempo decorrido: ' + $tarefa.Inicio.Elapsed.ToString('hh\:mm\:ss')
+        $acabou = $tarefa.Processo.HasExited
+        $lidos = 0
+        try {
+            $buffer = New-Object char[] 16384
+            $lidos = $tarefa.Leitor.Read($buffer, 0, $buffer.Length)
+            if ($lidos -gt 0) {
+                $noFim = $saida.Text.Length -eq 0 -or $saida.VerticalOffset -ge ($saida.ExtentHeight - $saida.ViewportHeight - 2)
+                $saida.AppendText([string]::new($buffer, 0, $lidos))
+                if ($saida.Text.Length -gt 180000) {
+                    $saida.Text = "… saída anterior omitida …`r`n" + $saida.Text.Substring($saida.Text.Length - 140000)
+                }
+                if ($noFim) { $saida.ScrollToEnd() }
+            }
+        } catch {
+            $saida.AppendText("Falha ao ler a saída: $($_.Exception.Message)`r`n")
+        }
+        if ($acabou -and $lidos -lt 16384) {
+            $codigoSaida = $tarefa.Processo.ExitCode
+            $tarefa.Terminou = $true
+            $timerComando.Stop()
+            $tarefa.Leitor.Dispose()
+            $tarefa.Processo.Dispose()
+            Remove-Item -LiteralPath $log -ErrorAction SilentlyContinue
+            $painel.FindName('Indicador').Visibility = 'Collapsed'
+            $estado.Text = if ($codigoSaida -eq 0) { 'Execução concluída' } else { "Revise a saída · código $codigoSaida" }
+            $estado.Foreground = if ($codigoSaida -eq 0) { $corOk } else { $corAviso }
+            if (-not $saida.Text.Trim()) { $saida.Text = 'A tarefa terminou sem emitir mensagens.' }
+            $fechar.IsEnabled = $true
+        }
+    }.GetNewClosure())
+    $painel.add_Closing({ param($s,$e) if (-not $tarefa.Terminou) { $e.Cancel = $true } }.GetNewClosure())
+    $fechar.add_Click({ $painel.Close() }.GetNewClosure())
+    $painel.FindName('FecharTitulo').add_Click({ $painel.Close() }.GetNewClosure())
+    if ($script:PainelComando -and $script:PainelComando.IsVisible) { $script:PainelComando.Close() }
+    $script:PainelComando = $painel
+    $script:TarefaComando = $tarefa
+    $painel.Show()
+    try {
+        $stream = [IO.File]::Open($log, 'Open', 'Read', 'ReadWrite')
+        $tarefa.Leitor = [IO.StreamReader]::new($stream, [Text.Encoding]::UTF8)
+        $completo = New-CodigoComando $codigo $log
+        $codificado = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($completo))
+        $opts = @{
+            FilePath = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+            ArgumentList = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand $codificado"
+            WindowStyle = 'Hidden'; PassThru = $true; ErrorAction = 'Stop'
+        }
+        if ($cmd.Admin -and -not $EhAdmin) {
+            $estado.Text = 'Aguardando permissão do Windows...'
+            $opts.Verb = 'RunAs'
+        }
+        $tarefa.Processo = Start-Process @opts
+        $estado.Text = 'Executando...'
+        $timerComando.Start()
+    } catch {
+        $tarefa.Terminou = $true
+        if ($tarefa.Leitor) { $tarefa.Leitor.Dispose() }
+        Remove-Item -LiteralPath $log -ErrorAction SilentlyContinue
+        $painel.FindName('Indicador').Visibility = 'Collapsed'
+        $estado.Text = 'A tarefa não pôde começar'
+        $saida.Text = $_.Exception.Message
+        $fechar.IsEnabled = $true
+    }
+}
+
+function Test-ComandoEmExecucao {
+    if ($script:TarefaComando -and -not $script:TarefaComando.Terminou) {
+        [void]$script:PainelComando.Activate()
+        return $true
+    }
+    return $false
+}
+
 function Invoke-Comando($cmd) {
+    if (Test-ComandoEmExecucao) { return }
     $aviso = "$($cmd.Titulo)`n`n$($cmd.Descricao)"
     if ($cmd.Admin) { $aviso += "`n`nO Windows vai pedir permissão de administrador." }
+    if ($cmd.Interativo) { $aviso += "`n`nEsta tarefa abre o terminal para você responder ao CHKDSK." }
     $resp = [Windows.MessageBox]::Show($aviso, 'Executar comando?', 'YesNo', 'Question')
     if ($resp -ne 'Yes') { return }
+
+    if (-not $cmd.Interativo) {
+        Show-PainelComando $cmd ($PreludioCmd + [Environment]::NewLine + $cmd.Script)
+        return
+    }
 
     $titulo = $cmd.Titulo -replace "'", "''"
     $completo = "$PreludioCmd`n`$Host.UI.RawUI.WindowTitle = '$titulo'`nWrite-Host '== $titulo ==' -ForegroundColor Cyan`n$($cmd.Script)`nWrite-Host ''`nWrite-Host 'Concluído. Pode fechar esta janela.' -ForegroundColor Green"
@@ -6292,6 +6743,7 @@ $script:ModoAplicado = $null
 
 function Enable-ModoJogo($jogo) {
     if ($script:ModoAplicado) { return }
+    if ($script:AgoraSessao) { Restore-AgoraSessao; if ($script:AgoraSessao) { return } }
     $m = @{ Jogo = $jogo; Desde = Get-Date; Plano = $null; Indexacao = $false; Fechados = @(); Feito = @() }
     if ($Config.ModoJogoPlano) {
         try {
@@ -6584,6 +7036,7 @@ $AppsDeChamada = 'Teams', 'ms-teams', 'Zoom', 'Slack', 'Discord', 'Skype', 'Webe
 
 function Start-Reuniao($app) {
     if ($script:Reuniao) { return }
+    if ($script:AgoraSessao) { Restore-AgoraSessao; if ($script:AgoraSessao) { return } }
     $m = @{ App = $app; Desde = Get-Date; Servicos = @(); Fechados = $null; Feito = @(); CpuMax = 0; CpuSoma = 0.0; N = 0; Pings = @(); Riscos = 0; RiscoSeg = 0 }
     # Windows Update, BITS e Otimização de Entrega baixam em segundo plano e disputam a internet com a chamada.
     # São serviços "sob demanda": parar agora e iniciar no fim não perde nada (o download continua de onde parou).
@@ -7514,6 +7967,168 @@ if (`$lista.Count) {
 })
 #endregion
 
+#region Otimizar agora (sessão manual e reversível)
+$AgoraPath = Join-Path $ConfigDir 'otimizacao-sessao.json'
+$AgoraPreferenciasPath = Join-Path $ConfigDir 'otimizacao-preferencias.json'
+$script:AgoraSessao = $null
+$script:AgoraChecks = @()
+$AgoraPermitidos = @('chrome','msedge','firefox','opera','brave','vivaldi','Spotify','Discord',
+    'steam','EpicGamesLauncher','EADesktop','UbisoftConnect','GalaxyClient','Telegram','WhatsApp','WhatsApp.Root')
+
+function Get-AgoraPlano {
+    $texto = & powercfg /getactivescheme
+    if ($LASTEXITCODE -ne 0) { throw 'Não foi possível ler o plano de energia.' }
+    [regex]::Match("$texto", '[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}').Value
+}
+
+function Save-AgoraSessao {
+    $script:AgoraSessao | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $AgoraPath -Encoding UTF8 -ErrorAction Stop
+}
+
+function Test-AgoraProcesso($p, $item) {
+    # Identidade completa: nunca fecha um PID reutilizado nem outro executável com o mesmo nome.
+    try {
+        return ($p.Id -ne $PID -and $p.ProcessName -in $AgoraPermitidos -and
+            $p.ProcessName -ne $script:JogoAtual -and $p.Id -eq $item.Id -and
+            $p.StartTime.ToUniversalTime().Ticks -eq [long]$item.Inicio -and
+            $p.Path -eq $item.Caminho -and $p.MainWindowHandle -ne [IntPtr]::Zero -and
+            -not $p.Path.StartsWith($env:windir.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase))
+    } catch { return $false }
+}
+
+function Update-AgoraLista {
+    $ui.spAgoraApps.Children.Clear(); $script:AgoraChecks = @()
+    $preferidos = @()
+    if ($ui.rbAgoraCustom.IsChecked -and (Test-Path -LiteralPath $AgoraPreferenciasPath)) {
+        try { $preferidos = @(Get-Content -LiteralPath $AgoraPreferenciasPath -Raw | ConvertFrom-Json) } catch {}
+    }
+    foreach ($p in @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -in $AgoraPermitidos })) {
+        try {
+            $item = [pscustomobject]@{ Id=$p.Id; Nome=$p.ProcessName; Caminho=$p.Path; Inicio=$p.StartTime.ToUniversalTime().Ticks }
+            if (-not (Test-AgoraProcesso $p $item)) { continue }
+            $consumo = $script:Processos | Where-Object Nome -eq $p.ProcessName | Select-Object -First 1
+            $chk = New-Object Windows.Controls.CheckBox
+            $chk.Content = '{0} · PID {1} · {2:N0} MB (esta janela) · CPU do grupo {3:N1}%' -f $p.ProcessName, $p.Id, ($p.WorkingSet64/1MB), $consumo.Cpu
+            $chk.Margin = '0,4,0,4'; $chk.IsChecked = $p.ProcessName -in $preferidos
+            $chk.Tag = $item
+            [void]$ui.spAgoraApps.Children.Add($chk)
+            $script:AgoraChecks += $chk
+        } catch {}
+    }
+    if (-not $script:AgoraChecks.Count) {
+        $txt = New-Object Windows.Controls.TextBlock
+        $txt.Text = 'Nenhum aplicativo elegível com janela aberta. Serviços e processos essenciais ficam fora da lista.'
+        $txt.TextWrapping = 'Wrap'; [void]$ui.spAgoraApps.Children.Add($txt)
+    }
+}
+
+function Set-AgoraPerfil {
+    $ui.chkAgoraEnergia.IsChecked = [bool]$ui.rbAgoraGamer.IsChecked
+    $ui.txtAgoraPerfil.Text = if ($ui.rbAgoraGamer.IsChecked) {
+        'Gamer: fecha os aplicativos marcados e oferece alto desempenho temporário. Use Restaurar sessão ao terminar o jogo.'
+    } elseif ($ui.rbAgoraCustom.IsChecked) {
+        'Personalizado: recupera sua última seleção de aplicativos. Revise antes de aplicar; a inicialização pode ser revisada pelo botão abaixo.'
+    } else {
+        'Leve: solicita o fechamento dos aplicativos marcados. O plano de energia só muda se você marcar a opção.'
+    }
+    Update-AgoraLista
+}
+
+function Invoke-AgoraAplicar {
+    if ($script:AgoraSessao) { $ui.txtAgoraStatus.Text = 'Restaure a sessão anterior antes de aplicar outra.'; return }
+    if ($script:ModoAplicado -or $script:Reuniao -or (Get-ChamadaAtiva)) {
+        $ui.txtAgoraStatus.Text = 'Encerre o Modo Jogo automático ou a chamada antes de aplicar a otimização manual.'; return
+    }
+    $itens = @($script:AgoraChecks | Where-Object IsChecked | ForEach-Object { $_.Tag })
+    $energia = [bool]$ui.chkAgoraEnergia.IsChecked
+    if (-not $itens.Count -and -not $energia) { $ui.txtAgoraStatus.Text = 'Marque um aplicativo ou a opção de energia.'; return }
+    $resumo = (@($itens | ForEach-Object { "$($_.Nome) (PID $($_.Id))" }) -join ', ')
+    $msg = "Aplicar aos aplicativos: $resumo`nAlto desempenho: $energia`n`nSalve seu trabalho. Será solicitado o fechamento normal. Aplicativos podem pedir confirmação para salvar. Restaurar não recupera trabalho não salvo."
+    if ([Windows.MessageBox]::Show($msg, 'Otimizar agora', 'YesNo', 'Warning') -ne 'Yes') { return }
+    $sessao = [pscustomobject]@{ PlanoAnterior=''; PlanoAplicado=''; Aplicativos=@(); Hora=(Get-Date).ToString('s') }
+    $script:AgoraSessao = $sessao
+    try {
+        # Grava a recuperação antes de qualquer ação.
+        if ($energia) {
+            $sessao.PlanoAnterior = Get-AgoraPlano
+            if (-not $sessao.PlanoAnterior) { throw 'Plano de energia desconhecido.' }
+            $sessao.PlanoAplicado = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'
+        }
+        $sessao.Aplicativos = $itens
+        Save-AgoraSessao
+        if ($energia) {
+            & powercfg /setactive $sessao.PlanoAplicado | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'O plano Alto desempenho não está disponível neste PC.' }
+        }
+        $pedidos = 0
+        foreach ($item in $itens) {
+            $p = Get-Process -Id $item.Id -ErrorAction SilentlyContinue
+            if ($p -and (Test-AgoraProcesso $p $item)) {
+                try { if ($p.CloseMainWindow()) { $pedidos++ } } catch {}
+            }
+        }
+        if ($ui.rbAgoraCustom.IsChecked) {
+            ConvertTo-Json -InputObject @($itens | ForEach-Object Nome | Select-Object -Unique) | Set-Content -LiteralPath $AgoraPreferenciasPath -Encoding UTF8
+        }
+        $ui.txtAgoraStatus.Text = "Sessão aplicada. Fechamento solicitado a $pedidos janela(s). Se algum aplicativo pedir para salvar, responda nele. Use Restaurar sessão ao terminar."
+    } catch {
+        $ui.txtAgoraStatus.Text = "Aplicação interrompida: $($_.Exception.Message) Use Restaurar sessão para recuperar o estado anterior."
+    }
+    $ui.btnAgoraRestaurar.IsEnabled = $true
+}
+
+function Restore-AgoraSessao {
+    $s = $script:AgoraSessao
+    if (-not $s) { return }
+    $falhas = @(); $abertos = 0
+    if ($s.PlanoAnterior -match '^[0-9a-fA-F-]{36}$' -and $s.PlanoAplicado) {
+        try {
+            # Respeita uma troca de plano feita por você ou por outro programa durante a sessão.
+            if ((Get-AgoraPlano) -eq $s.PlanoAplicado) {
+                & powercfg /setactive $s.PlanoAnterior | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw 'Falha ao restaurar o plano de energia.' }
+            }
+        } catch { $falhas += $_.Exception.Message }
+    }
+    foreach ($item in @($s.Aplicativos)) {
+        if ($item.Nome -notin $AgoraPermitidos) { continue }
+        if (Get-Process -Name $item.Nome -ErrorAction SilentlyContinue) { continue }
+        try {
+            $cam = [IO.Path]::GetFullPath($item.Caminho)
+            if ([IO.Path]::GetFileNameWithoutExtension($cam) -ne $item.Nome -or
+                $cam.StartsWith($env:windir.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) -or
+                -not (Test-Path -LiteralPath $cam -PathType Leaf)) { throw 'Executável não disponível.' }
+            Start-Process -FilePath $cam -WindowStyle Hidden -ErrorAction Stop
+            $abertos++
+        } catch { $falhas += "Não foi possível reabrir $($item.Nome): $($_.Exception.Message)" }
+    }
+    if ($falhas.Count) {
+        $ui.txtAgoraStatus.Text = 'Restauração parcial; tente novamente: ' + ($falhas -join ' ')
+        return
+    }
+    Remove-Item -LiteralPath $AgoraPath -ErrorAction SilentlyContinue
+    $script:AgoraSessao = $null
+    $ui.btnAgoraRestaurar.IsEnabled = $false
+    $ui.txtAgoraStatus.Text = "Sessão restaurada; $abertos aplicativo(s) reaberto(s)."
+}
+
+$ui.btnAgoraListar.add_Click({ Update-AgoraLista })
+$ui.btnAgoraAplicar.add_Click({ Invoke-AgoraAplicar })
+$ui.btnAgoraRestaurar.add_Click({ Restore-AgoraSessao })
+$ui.btnAgoraInicio.add_Click({ Start-Process 'ms-settings:startupapps' })
+$ui.btnAgoraLimpeza.add_Click({ Select-Aba 11 })
+foreach ($rb in $ui.rbAgoraLeve, $ui.rbAgoraGamer, $ui.rbAgoraCustom) { $rb.add_Checked({ Set-AgoraPerfil }) }
+$ui.tabs.add_SelectionChanged({ param($s,$e) if ($e.OriginalSource -eq $ui.tabs -and $ui.tabs.SelectedIndex -eq 4) { Update-AgoraLista } })
+if (Test-Path -LiteralPath $AgoraPath) {
+    try {
+        $script:AgoraSessao = Get-Content -LiteralPath $AgoraPath -Raw | ConvertFrom-Json
+        $ui.btnAgoraRestaurar.IsEnabled = $true
+        $ui.txtAgoraStatus.Text = 'Há uma sessão anterior pendente. Clique em Restaurar sessão para recuperar o plano e reabrir os aplicativos.'
+    } catch { $ui.txtAgoraStatus.Text = 'O registro de recuperação não pôde ser lido. Confira o plano de energia nas configurações do Windows.' }
+}
+Set-AgoraPerfil
+#endregion
+
 #region Configurações na tela
 $AtalhoInicio = Join-Path ([Environment]::GetFolderPath('Startup')) 'Monitor PC.lnk'
 
@@ -7688,8 +8303,9 @@ if ($EhAdmin) {
     $ui.txtAdmin.Foreground = Get-Pincel $Cor.Suave
 }
 $ui.btnAdmin.add_Click({
+    if (Test-ComandoEmExecucao) { return }
     try {
-        Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`" -Reiniciando"
+        Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`" -Reiniciando"
         Exit-App
     } catch {}
 })
@@ -7710,12 +8326,14 @@ function Remove-IconeBandeja {
 }
 
 function Exit-App {
+    if (Test-ComandoEmExecucao) { return }
     $script:Saindo = $true
     $timer.Stop(); $timerAnim.Stop(); $timerSegAgenda.Stop(); $timerMostrar.Stop()
     $GpuSync.Rodando = $false
     $PingSync.Rodando = $false
     try { Stop-SessaoJogo; Disable-ModoJogo } catch {}   # salva a sessão e devolve o PC ao normal
     try { Stop-Reuniao } catch {}
+    try { Restore-AgoraSessao } catch {}
     try { $Overlay.Close() } catch {}
     Stop-Fps
     Remove-IconeBandeja
@@ -7733,8 +8351,38 @@ $ui.btnMin.add_Click({ $window.WindowState = 'Minimized' })
 $ui.btnMax.add_Click({ $window.WindowState = if ($window.WindowState -eq 'Maximized') { 'Normal' } else { 'Maximized' } })
 $ui.btnFechar.add_Click({ $window.Close() })
 $ui.btnSair.add_Click({ Exit-App })
+
+function Update-LayoutCompacto([double]$largura) {
+    $compacto = $largura -lt 1080
+    $ui.colMenu.Width = [Windows.GridLength]::new($(if ($compacto) { 198 } else { 236 }))
+    $ui.bdAvatar.Visibility = if ($compacto) { 'Collapsed' } else { 'Visible' }
+    $ui.txtRelogio.Visibility = $ui.bdAvatar.Visibility
+    $ui.icVida.Tag = if ($compacto) { 1 } else { 2 }
+    $ui.ugDisco.Columns = if ($compacto) { 2 } else { 4 }
+    $ui.icProtecao.Tag = if ($compacto) { 2 } else { 4 }
+}
+
+function Fit-JanelaNoMonitor {
+    if ($window.WindowState -ne 'Normal') { return }
+    $origem = [Windows.PresentationSource]::FromVisual($window)
+    if (-not $origem -or -not $origem.CompositionTarget) { return }
+    $area = [Windows.Forms.Screen]::FromHandle($origem.Handle).WorkingArea
+    $escala = $origem.CompositionTarget.TransformFromDevice
+    $largura = $area.Width * $escala.M11
+    $altura = $area.Height * $escala.M22
+    $window.MinWidth = [Math]::Min(700.0, $largura)
+    $window.MinHeight = [Math]::Min(420.0, $altura)
+    if ($window.Width -gt $largura) { $window.Width = $largura }
+    if ($window.Height -gt $altura) { $window.Height = $altura }
+}
+
+$window.add_SourceInitialized({ Fit-JanelaNoMonitor })
+$window.add_LocationChanged({ Fit-JanelaNoMonitor })
+$window.add_DpiChanged({ Fit-JanelaNoMonitor })
+$window.add_SizeChanged({ param($s,$e) Update-LayoutCompacto $e.NewSize.Width })
 # Sem borda nativa, a janela maximizada passa um pouco da tela: compensa com margem
 $window.add_StateChanged({
+    Fit-JanelaNoMonitor
     $ui.raiz.Margin = if ($window.WindowState -eq 'Maximized') { '7' } else { '0' }
     $ui.btnMax.Content = if ($window.WindowState -eq 'Maximized') { [string][char]0xE923 } else { [string][char]0xE922 }
     Update-Animacoes
